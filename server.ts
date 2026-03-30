@@ -1,6 +1,7 @@
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
+import './lib/db/index' // verify schema version on startup; exits with fatal log on mismatch
 
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev })
