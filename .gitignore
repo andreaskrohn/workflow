@@ -37,3 +37,6 @@ next-env.d.ts
 
 # logs
 logs/
+
+# test database
+workflow-test.db*

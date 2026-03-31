@@ -17,12 +17,9 @@ import path from 'path'
 import os from 'os'
 import { EXPECTED_SCHEMA_VERSION } from './schemaVersion'
 
-const DEFAULT_DB_PATH = path.join(
-  os.homedir(),
-  'Documents',
-  'workflow-data',
-  'workflow.db',
-)
+const DEFAULT_DB_PATH =
+  process.env['DATABASE_URL'] ??
+  path.join(os.homedir(), 'Documents', 'workflow-data', 'workflow.db')
 
 const LOG_PATH = path.join(process.cwd(), 'logs', 'app.log')
 

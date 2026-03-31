@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import fs from 'fs'
 import os from 'os'
@@ -26,23 +25,22 @@ function makeDb(dir: string, version: number | null) {
 // ── setup ────────────────────────────────────────────────────────────────────
 
 let tmpDir: string
-let exitSpy: ReturnType<typeof vi.spyOn>
-let stderrSpy: ReturnType<typeof vi.spyOn>
+let exitSpy: jest.SpyInstance
+let stderrSpy: jest.SpyInstance
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-schema-test-'))
 
   // Prevent process.exit from actually terminating the test runner.
-  // Cast needed because TypeScript doesn't know the mock won't return.
-  exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as (code?: number) => never)
+  exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {}) as (code?: number) => never)
 
   // Suppress stderr noise in test output.
-  stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true)
 })
 
 afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true })
-  vi.restoreAllMocks()
+  jest.restoreAllMocks()
 })
 
 // ── tests ─────────────────────────────────────────────────────────────────────

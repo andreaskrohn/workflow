@@ -4,7 +4,8 @@ import path from 'path'
 import os from 'os'
 import * as schema from './schema'
 
-const DB_PATH = path.join(os.homedir(), 'Documents', 'workflow-data', 'workflow.db')
+const DB_PATH =
+  process.env['DATABASE_URL'] ?? path.join(os.homedir(), 'Documents', 'workflow-data', 'workflow.db')
 
 function openDb() {
   const sqlite = new Database(DB_PATH)
