@@ -1,7 +1,10 @@
+// checkSchemaVersion has NO pino dependency — must be imported before any module
+// that loads lib/logger.ts (which spawns pino's worker thread).  Importing it
+// first guarantees process.exit(1) fires cleanly if the schema is wrong.
+import { checkSchemaVersion } from './lib/db/checkSchemaVersion'
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
-import './lib/db/index' // verify schema version on startup; exits with fatal log on mismatch
 
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev })
@@ -29,6 +32,9 @@ function tryListen(port: number): Promise<void> {
     })
   })
 }
+
+// Run before pino's worker thread is registered (pino loads later via route imports).
+checkSchemaVersion()
 
 async function start() {
   await app.prepare()
