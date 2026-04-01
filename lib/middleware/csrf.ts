@@ -1,8 +1,23 @@
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
-// 32-byte hex token generated once at process startup.
-export const CSRF_TOKEN = crypto.randomBytes(32).toString('hex')
+// ── Singleton CSRF token ──────────────────────────────────────────────────────
+// Next.js compiles each API route into its own bundle, creating independent
+// module instances. A plain module-level constant would be re-evaluated in
+// every bundle, producing a different token per route.
+//
+// Storing on `global` ensures a single token value is shared across all route
+// bundles for the lifetime of the Node.js process, even under hot-reload.
+declare global {
+  // eslint-disable-next-line no-var
+  var __csrfToken: string | undefined
+}
+
+if (!global.__csrfToken) {
+  global.__csrfToken = crypto.randomBytes(32).toString('hex')
+}
+
+export const CSRF_TOKEN = global.__csrfToken
 
 const PROTECTED_METHODS = new Set(['POST', 'PATCH', 'DELETE'])
 
@@ -13,12 +28,19 @@ export function withCsrf(handler: Handler): Handler {
     if (PROTECTED_METHODS.has(req.method)) {
       const token = req.headers.get('X-CSRF-Token')
       if (token !== CSRF_TOKEN) {
-        // Dynamic import keeps pino out of client bundles that import only the
-        // client helpers below.
-        const { default: logger } = await import('../logger')
-        logger.warn(
-          { method: req.method, path: req.nextUrl.pathname },
-          'CSRF token mismatch',
+        // Use process.stderr directly — pino-roll spawns a worker thread whose
+        // file path resolves incorrectly inside the Next.js bundle output,
+        // causing an uncaughtException crash. Structured stderr output avoids
+        // this while still producing a machine-readable warning line.
+        process.stderr.write(
+          JSON.stringify({
+            level: 'warn',
+            time: Date.now(),
+            pid: process.pid,
+            method: req.method,
+            path: req.nextUrl.pathname,
+            msg: 'CSRF token mismatch',
+          }) + '\n',
         )
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
