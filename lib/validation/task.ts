@@ -39,6 +39,9 @@ export const TaskCreateSchema = z.object({
     .int('Due date must be a valid timestamp.')
     .nullable()
     .optional(),
+
+  position_x: z.number().nullable().optional(),
+  position_y: z.number().nullable().optional(),
 })
 
 export const TaskUpdateSchema = TaskCreateSchema.partial()

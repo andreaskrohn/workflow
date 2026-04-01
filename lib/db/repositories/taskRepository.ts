@@ -16,6 +16,9 @@ export interface Task {
   created_at: number
   updated_at: number
   archived_at: number | null
+  position_x: number | null
+  position_y: number | null
+  end_goal: string | null
 }
 
 export interface CreateTaskInput {
@@ -30,6 +33,9 @@ export interface CreateTaskInput {
   priority?: number
   /** Unix timestamp, or `null` for no due date. */
   due_date?: number | null
+  position_x?: number | null
+  position_y?: number | null
+  end_goal?: string | null
 }
 
 export interface UpdateTaskInput {
@@ -42,6 +48,9 @@ export interface UpdateTaskInput {
   priority?: number
   /** Pass `null` to explicitly clear the field. */
   due_date?: number | null
+  position_x?: number | null
+  position_y?: number | null
+  end_goal?: string | null
 }
 
 // ── Functions ─────────────────────────────────────────────────────────────────
@@ -59,8 +68,8 @@ export function createTask(db: Database.Database, input: CreateTaskInput): Task 
   const now = Math.floor(Date.now() / 1000)
 
   db.prepare(`
-    INSERT INTO tasks (id, title, description, notes, status, priority, due_date, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (id, title, description, notes, status, priority, due_date, created_at, updated_at, position_x, position_y, end_goal)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.title,
@@ -71,6 +80,9 @@ export function createTask(db: Database.Database, input: CreateTaskInput): Task 
     input.due_date ?? null,
     now,
     now,
+    input.position_x ?? null,
+    input.position_y ?? null,
+    input.end_goal ?? null,
   )
 
   return getTaskById(db, id)!
@@ -134,6 +146,9 @@ export function updateTask(
         status      = ?,
         priority    = ?,
         due_date    = ?,
+        position_x  = ?,
+        position_y  = ?,
+        end_goal    = ?,
         updated_at  = ?
     WHERE id = ?
   `).run(
@@ -143,6 +158,9 @@ export function updateTask(
     input.status ?? existing.status,
     input.priority ?? existing.priority,
     'due_date' in input ? input.due_date : existing.due_date,
+    'position_x' in input ? input.position_x : existing.position_x,
+    'position_y' in input ? input.position_y : existing.position_y,
+    'end_goal' in input ? input.end_goal : existing.end_goal,
     now,
     id,
   )

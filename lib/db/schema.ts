@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
@@ -13,6 +13,9 @@ export const tasks = sqliteTable('tasks', {
   created_at: integer('created_at').notNull(),
   updated_at: integer('updated_at').notNull(),
   archived_at: integer('archived_at'), // null = active
+  position_x: real('position_x'),
+  position_y: real('position_y'),
+  end_goal: text('end_goal'),
 })
 
 export const taskDependencies = sqliteTable('task_dependencies', {

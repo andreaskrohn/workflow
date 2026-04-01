@@ -1,0 +1,16 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { withCsrf } from '@/lib/middleware/csrf'
+import { rawDb } from '@/lib/db/rawDb'
+import { getTaskById, archiveTask } from '@/lib/db/repositories/taskRepository'
+
+type Ctx = { params: { id: string } }
+
+async function postHandler(_req: NextRequest, ctx?: unknown): Promise<NextResponse> {
+  const { id } = (ctx as Ctx).params
+  const task = getTaskById(rawDb, id)
+  if (!task) return NextResponse.json({ error: 'Task not found.' }, { status: 404 })
+  archiveTask(rawDb, id)
+  return NextResponse.json({ ok: true })
+}
+
+export const POST = withCsrf(postHandler)

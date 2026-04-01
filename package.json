@@ -13,7 +13,9 @@
     "test": "jest"
   },
   "dependencies": {
+    "@types/dagre": "^0.7.54",
     "better-sqlite3": "^12.8.0",
+    "dagre": "^0.8.5",
     "drizzle-orm": "^0.45.2",
     "next": "14.2.35",
     "node-cron": "^4.2.1",
@@ -21,6 +23,7 @@
     "pino-roll": "^4.0.0",
     "react": "^18",
     "react-dom": "^18",
+    "reactflow": "^11.11.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
