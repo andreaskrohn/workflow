@@ -6,8 +6,9 @@ import { listTasks, createTask } from '@/lib/db/repositories/taskRepository'
 import { TaskCreateSchema } from '@/lib/validation/task'
 import { ZodError } from 'zod'
 
-export async function GET() {
-  const tasks = listTasks(rawDb)
+export async function GET(req: NextRequest) {
+  const workflowId = req.nextUrl.searchParams.get('workflow_id') ?? undefined
+  const tasks = listTasks(rawDb, { workflowId })
   return NextResponse.json(tasks)
 }
 

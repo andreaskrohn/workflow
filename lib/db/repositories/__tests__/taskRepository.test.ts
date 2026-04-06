@@ -47,13 +47,13 @@ describe('createTask', () => {
       title: 'Full task',
       description: 'Some details',
       notes: 'A note',
-      status: 'in_progress',
+      status: 'done',
       priority: 5,
       due_date: 1700000000,
     })
     expect(task.description).toBe('Some details')
     expect(task.notes).toBe('A note')
-    expect(task.status).toBe('in_progress')
+    expect(task.status).toBe('done')
     expect(task.priority).toBe(5)
     expect(task.due_date).toBe(1700000000)
   })

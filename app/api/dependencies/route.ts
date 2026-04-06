@@ -11,10 +11,26 @@ const CreateDependencySchema = z.object({
   depends_on_task_id: z.string().uuid('depends_on_task_id must be a valid UUID.'),
 })
 
-export async function GET() {
-  const rows = rawDb
-    .prepare('SELECT * FROM task_dependencies WHERE archived_at IS NULL')
-    .all() as Edge[]
+export async function GET(req: NextRequest) {
+  const workflowId = req.nextUrl.searchParams.get('workflow_id')
+
+  let rows: Edge[]
+  if (workflowId) {
+    // Return only active deps where the dependent task belongs to the given workflow.
+    rows = rawDb
+      .prepare(`
+        SELECT d.*
+        FROM task_dependencies d
+        JOIN tasks t ON d.task_id = t.id
+        WHERE t.workflow_id = ? AND d.archived_at IS NULL
+      `)
+      .all(workflowId) as Edge[]
+  } else {
+    rows = rawDb
+      .prepare('SELECT * FROM task_dependencies WHERE archived_at IS NULL')
+      .all() as Edge[]
+  }
+
   return NextResponse.json(rows)
 }
 
@@ -52,7 +68,6 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     const dep = createDependency(rawDb, parsed)
     return NextResponse.json(dep, { status: 201 })
   } catch (err: unknown) {
-    // Unique constraint — active edge already exists
     if (
       err instanceof Error &&
       err.message.includes('UNIQUE constraint failed')

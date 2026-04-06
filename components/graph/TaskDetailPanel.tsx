@@ -16,21 +16,69 @@ interface TaskDetailPanelProps {
   onUpdated: (task: Task) => void
 }
 
+function todayString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function tsToDateInput(ts: number | null): string {
+  if (!ts) return ''
+  const d = new Date(ts * 1000)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function dateInputToTs(val: string): number | null {
+  if (!val) return null
+  const d = new Date(val + 'T00:00:00')
+  return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000)
+}
+
+function addDays(base: string | null, days: number): string {
+  const from = base ? new Date(base + 'T00:00:00') : new Date()
+  from.setDate(from.getDate() + days)
+  const yyyy = from.getFullYear()
+  const mm = String(from.getMonth() + 1).padStart(2, '0')
+  const dd = String(from.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function addMonths(base: string | null, months: number): string {
+  const from = base ? new Date(base + 'T00:00:00') : new Date()
+  from.setMonth(from.getMonth() + months)
+  const yyyy = from.getFullYear()
+  const mm = String(from.getMonth() + 1).padStart(2, '0')
+  const dd = String(from.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+const dateShortcuts = [
+  { label: '+1d', fn: (v: string | null) => addDays(v, 1) },
+  { label: '+1w', fn: (v: string | null) => addDays(v, 7) },
+  { label: '+1m', fn: (v: string | null) => addMonths(v, 1) },
+  { label: '+3m', fn: (v: string | null) => addMonths(v, 3) },
+]
+
 export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelProps) {
   const { showToast } = useToast()
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description ?? '')
   const [notes, setNotes] = useState(task.notes ?? '')
-  const [endGoal, setEndGoal] = useState(task.end_goal ?? '')
   const [status, setStatus] = useState(task.status)
+  const [dueDateInput, setDueDateInput] = useState(tsToDateInput(task.due_date))
+  const [deferDateInput, setDeferDateInput] = useState(tsToDateInput(task.defer_date))
   const [saving, setSaving] = useState(false)
+  const today = todayString()
 
   useEffect(() => {
     setTitle(task.title)
     setDescription(task.description ?? '')
     setNotes(task.notes ?? '')
-    setEndGoal(task.end_goal ?? '')
     setStatus(task.status)
+    setDueDateInput(tsToDateInput(task.due_date))
+    setDeferDateInput(tsToDateInput(task.defer_date))
   }, [task.id])
 
   async function handleSave() {
@@ -40,11 +88,18 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
-        body: JSON.stringify({ title, description: description || null, notes: notes || null, end_goal: endGoal || null, status }),
+        body: JSON.stringify({
+          title,
+          description: description || null,
+          notes: notes || null,
+          status,
+          due_date: dateInputToTs(dueDateInput),
+          defer_date: dateInputToTs(deferDateInput),
+        }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        showToast(data.error ?? 'Failed to save task.')
+        showToast((data as { error?: string }).error ?? 'Failed to save task.')
         return
       }
       const updated: Task = await res.json()
@@ -73,17 +128,6 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
         </div>
 
         <div>
-          <label className="block text-xs text-slate-400 mb-1">End Goal</label>
-          <input
-            value={endGoal}
-            onChange={(e) => setEndGoal(e.target.value)}
-            maxLength={2000}
-            placeholder="What does success look like?"
-            className="w-full rounded bg-slate-800 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        <div>
           <label className="block text-xs text-slate-400 mb-1">Status</label>
           <select
             value={status}
@@ -91,10 +135,69 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
             className="w-full rounded bg-slate-800 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
           >
             <option value="todo">To do</option>
-            <option value="in_progress">In progress</option>
             <option value="done">Done</option>
             <option value="blocked">Blocked</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Due date</label>
+          <input
+            type="date"
+            value={dueDateInput}
+            min={today}
+            onChange={(e) => setDueDateInput(e.target.value)}
+            className="w-full rounded bg-slate-800 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+          />
+          <div className="flex gap-1 mt-1 flex-wrap">
+            {dateShortcuts.map(({ label, fn }) => (
+              <button
+                key={label}
+                onClick={() => setDueDateInput(fn(dueDateInput || null))}
+                className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white"
+              >
+                {label}
+              </button>
+            ))}
+            {dueDateInput && (
+              <button
+                onClick={() => setDueDateInput('')}
+                className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Defer until</label>
+          <input
+            type="date"
+            value={deferDateInput}
+            min={today}
+            onChange={(e) => setDeferDateInput(e.target.value)}
+            className="w-full rounded bg-slate-800 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+          />
+          <div className="flex gap-1 mt-1 flex-wrap">
+            {dateShortcuts.map(({ label, fn }) => (
+              <button
+                key={label}
+                onClick={() => setDeferDateInput(fn(deferDateInput || null))}
+                className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white"
+              >
+                {label}
+              </button>
+            ))}
+            {deferDateInput && (
+              <button
+                onClick={() => setDeferDateInput('')}
+                className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         <div>

@@ -9,6 +9,7 @@ import './globals.css'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import Providers from '@/components/Providers'
 import Sidebar from '@/components/Sidebar'
+import { BackupPrompt } from '@/components/shared/BackupPrompt'
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Sidebar />
               <main className="flex-1 overflow-auto p-6">{children}</main>
             </div>
+            <BackupPrompt />
           </Providers>
         </ErrorBoundary>
       </body>

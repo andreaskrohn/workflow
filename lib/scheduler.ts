@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { spawn } from 'child_process'
 import path from 'path'
+import { rawDb } from '@/lib/db/rawDb'
 
 // Singleton guard — in Next.js dev mode modules can be re-evaluated on hot
 // reload; the global variable persists across re-evaluations so the cron job
@@ -15,9 +16,17 @@ if (!global.schedulerInitialized) {
 
   // Daily backup at 23:00.
   cron.schedule('0 23 * * *', () => {
-    spawn('bash', [path.join(process.cwd(), 'scripts', 'backup.sh')], {
+    const child = spawn('bash', [path.join(process.cwd(), 'scripts', 'backup.sh')], {
       detached: true,
       stdio: 'ignore',
-    }).unref()
+    })
+    child.on('close', (code) => {
+      if (code === 0) {
+        rawDb
+          .prepare('UPDATE app_settings SET last_backup_at = ? WHERE id = 1')
+          .run(Math.floor(Date.now() / 1000))
+      }
+    })
+    child.unref()
   })
 }
