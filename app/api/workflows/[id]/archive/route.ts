@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCsrf } from '@/lib/middleware/csrf'
+import { withRateLimit } from '@/lib/middleware/rateLimit'
 import { rawDb } from '@/lib/db/rawDb'
 import { getWorkflowById, archiveWorkflowWithTasks } from '@/lib/db/repositories/workflowRepository'
 
@@ -20,4 +21,4 @@ async function postHandler(req: NextRequest, ctx?: unknown): Promise<NextRespons
   return NextResponse.json({ archived: true })
 }
 
-export const POST = withCsrf(postHandler)
+export const POST = withRateLimit(withCsrf(postHandler))

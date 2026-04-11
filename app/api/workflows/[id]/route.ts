@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCsrf } from '@/lib/middleware/csrf'
 import { withPayloadLimit } from '@/lib/middleware/payloadLimit'
+import { withRateLimit } from '@/lib/middleware/rateLimit'
 import { rawDb } from '@/lib/db/rawDb'
 import { getWorkflowById, updateWorkflow } from '@/lib/db/repositories/workflowRepository'
 import { z, ZodError } from 'zod'
@@ -50,6 +51,10 @@ async function patchHandler(req: NextRequest, ctx?: unknown): Promise<NextRespon
     return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 })
   }
 
+  if (typeof body === 'object' && body !== null && 'project_id' in body) {
+    return NextResponse.json({ error: 'project_id cannot be changed.' }, { status: 400 })
+  }
+
   let parsed
   try {
     parsed = UpdateWorkflowSchema.parse(body)
@@ -67,4 +72,4 @@ async function patchHandler(req: NextRequest, ctx?: unknown): Promise<NextRespon
   return NextResponse.json(workflow)
 }
 
-export const PATCH = withPayloadLimit(withCsrf(patchHandler))
+export const PATCH = withRateLimit(withPayloadLimit(withCsrf(patchHandler)))

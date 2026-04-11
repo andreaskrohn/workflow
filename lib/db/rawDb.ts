@@ -15,6 +15,7 @@ declare global {
 if (!global.__rawDb) {
   global.__rawDb = new Database(DB_PATH)
   global.__rawDb.pragma('journal_mode = WAL')
+  global.__rawDb.pragma('busy_timeout = 5000')
   global.__rawDb.pragma('foreign_keys = ON')
 }
 

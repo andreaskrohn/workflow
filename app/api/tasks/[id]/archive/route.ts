@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCsrf } from '@/lib/middleware/csrf'
+import { withRateLimit } from '@/lib/middleware/rateLimit'
 import { rawDb } from '@/lib/db/rawDb'
 import { getTaskById, archiveTask } from '@/lib/db/repositories/taskRepository'
 
@@ -13,4 +14,4 @@ async function postHandler(_req: NextRequest, ctx?: unknown): Promise<NextRespon
   return NextResponse.json({ ok: true })
 }
 
-export const POST = withCsrf(postHandler)
+export const POST = withRateLimit(withCsrf(postHandler))

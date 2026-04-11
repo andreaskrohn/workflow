@@ -13,4 +13,5 @@ module.exports = {
   globalTeardown: "<rootDir>/tests/teardown.ts",
   setupFilesAfterEnv: ["<rootDir>/tests/jest-setup.ts"],
   testMatch: ["**/__tests__/**/*.test.ts?(x)", "**/tests/**/*.test.ts?(x)"],
+  maxWorkers: 1,
 };

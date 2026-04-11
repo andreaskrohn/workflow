@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCsrf } from '@/lib/middleware/csrf'
 import { withPayloadLimit } from '@/lib/middleware/payloadLimit'
+import { withRateLimit } from '@/lib/middleware/rateLimit'
 import { rawDb } from '@/lib/db/rawDb'
 import { getTaskById, updateTask } from '@/lib/db/repositories/taskRepository'
 import { TaskUpdateSchema } from '@/lib/validation/task'
@@ -37,7 +38,7 @@ async function patchHandler(req: NextRequest, ctx?: unknown): Promise<NextRespon
   return NextResponse.json(updated)
 }
 
-export const PATCH = withPayloadLimit(withCsrf(patchHandler))
+export const PATCH = withRateLimit(withPayloadLimit(withCsrf(patchHandler)))
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const task = getTaskById(rawDb, ctx.params.id)

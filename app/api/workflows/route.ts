@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCsrf } from '@/lib/middleware/csrf'
 import { withPayloadLimit } from '@/lib/middleware/payloadLimit'
+import { withRateLimit } from '@/lib/middleware/rateLimit'
 import { rawDb } from '@/lib/db/rawDb'
 import { listWorkflows, createWorkflow } from '@/lib/db/repositories/workflowRepository'
 import { z, ZodError } from 'zod'
@@ -46,4 +47,4 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(workflow, { status: 201 })
 }
 
-export const POST = withPayloadLimit(withCsrf(postHandler))
+export const POST = withRateLimit(withPayloadLimit(withCsrf(postHandler)))

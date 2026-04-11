@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCsrf } from '@/lib/middleware/csrf'
 import { withPayloadLimit } from '@/lib/middleware/payloadLimit'
+import { withRateLimit } from '@/lib/middleware/rateLimit'
 import { rawDb } from '@/lib/db/rawDb'
 import { listTasks, createTask } from '@/lib/db/repositories/taskRepository'
 import { TaskCreateSchema } from '@/lib/validation/task'
@@ -35,4 +36,4 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(task, { status: 201 })
 }
 
-export const POST = withPayloadLimit(withCsrf(postHandler))
+export const POST = withRateLimit(withPayloadLimit(withCsrf(postHandler)))

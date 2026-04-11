@@ -57,6 +57,7 @@ export default async function globalSetup() {
 
 export function resetDatabase(): void {
   const db = new Database(process.env['DATABASE_URL'] ?? TEST_DB_PATH)
+  db.pragma('busy_timeout = 5000')
   db.pragma('foreign_keys = OFF')
   db.exec('DELETE FROM task_dependencies')
   db.exec('DELETE FROM tasks')
