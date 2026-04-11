@@ -1,14 +1,19 @@
 'use client'
+
 import React, { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import type { Task } from '@/lib/db/repositories/taskRepository'
 import { getCsrfToken } from '@/lib/middleware/csrf'
 import { useToast } from '@/components/shared/ToastProvider'
+import { handleApiError, responseToApiError } from '@/lib/utils/errors'
+import { tsToDateInput, dateInputToTs, addDays, addMonths, todayString } from '@/lib/utils/dates'
 
 const TagManager = dynamic(() => import('@/components/tags/TagManager'), {
   ssr: false,
   loading: () => null,
 })
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TaskDetailPanelProps {
   task: Task
@@ -16,43 +21,7 @@ interface TaskDetailPanelProps {
   onUpdated: (task: Task) => void
 }
 
-function todayString(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function tsToDateInput(ts: number | null): string {
-  if (!ts) return ''
-  const d = new Date(ts * 1000)
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function dateInputToTs(val: string): number | null {
-  if (!val) return null
-  const d = new Date(val + 'T00:00:00')
-  return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000)
-}
-
-function addDays(base: string | null, days: number): string {
-  const from = base ? new Date(base + 'T00:00:00') : new Date()
-  from.setDate(from.getDate() + days)
-  const yyyy = from.getFullYear()
-  const mm = String(from.getMonth() + 1).padStart(2, '0')
-  const dd = String(from.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function addMonths(base: string | null, months: number): string {
-  const from = base ? new Date(base + 'T00:00:00') : new Date()
-  from.setMonth(from.getMonth() + months)
-  const yyyy = from.getFullYear()
-  const mm = String(from.getMonth() + 1).padStart(2, '0')
-  const dd = String(from.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
+// ── Date shortcut config ──────────────────────────────────────────────────────
 
 const dateShortcuts = [
   { label: '+1d', fn: (v: string | null) => addDays(v, 1) },
@@ -60,6 +29,8 @@ const dateShortcuts = [
   { label: '+1m', fn: (v: string | null) => addMonths(v, 1) },
   { label: '+3m', fn: (v: string | null) => addMonths(v, 3) },
 ]
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelProps) {
   const { showToast } = useToast()
@@ -97,13 +68,11 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           defer_date: dateInputToTs(deferDateInput),
         }),
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        showToast((data as { error?: string }).error ?? 'Failed to save task.')
-        return
-      }
+      if (!res.ok) throw await responseToApiError(res)
       const updated: Task = await res.json()
       onUpdated(updated)
+    } catch (err) {
+      handleApiError(err, showToast)
     } finally {
       setSaving(false)
     }
@@ -113,10 +82,17 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
     <aside className="w-80 flex-shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
         <h2 className="text-sm font-semibold text-white">Task Detail</h2>
-        <button onClick={onClose} className="text-slate-400 hover:text-white text-lg leading-none">×</button>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="text-slate-400 hover:text-white text-lg leading-none"
+        >
+          ×
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {/* Title */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Title</label>
           <input
@@ -127,6 +103,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           />
         </div>
 
+        {/* Status */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Status</label>
           <select
@@ -140,6 +117,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           </select>
         </div>
 
+        {/* Due date */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Due date</label>
           <input
@@ -153,6 +131,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
             {dateShortcuts.map(({ label, fn }) => (
               <button
                 key={label}
+                type="button"
                 onClick={() => setDueDateInput(fn(dueDateInput || null))}
                 className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white"
               >
@@ -161,6 +140,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
             ))}
             {dueDateInput && (
               <button
+                type="button"
                 onClick={() => setDueDateInput('')}
                 className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
               >
@@ -170,6 +150,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           </div>
         </div>
 
+        {/* Defer until */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Defer until</label>
           <input
@@ -183,6 +164,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
             {dateShortcuts.map(({ label, fn }) => (
               <button
                 key={label}
+                type="button"
                 onClick={() => setDeferDateInput(fn(deferDateInput || null))}
                 className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white"
               >
@@ -191,6 +173,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
             ))}
             {deferDateInput && (
               <button
+                type="button"
                 onClick={() => setDeferDateInput('')}
                 className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
               >
@@ -200,6 +183,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           </div>
         </div>
 
+        {/* Description */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Description</label>
           <textarea
@@ -211,6 +195,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           />
         </div>
 
+        {/* Notes */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Notes</label>
           <textarea
@@ -222,6 +207,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
           />
         </div>
 
+        {/* Tags */}
         <div>
           <label className="block text-xs text-slate-400 mb-2">Tags</label>
           <TagManager taskId={task.id} />
@@ -230,6 +216,7 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
 
       <div className="border-t border-slate-700 px-4 py-3">
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving}
           className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
