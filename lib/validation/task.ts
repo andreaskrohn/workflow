@@ -95,6 +95,7 @@ export const TaskUpdateSchema = z.object({
 
   position_x: z.number().nullable().optional(),
   position_y: z.number().nullable().optional(),
+  workflow_id: z.string().uuid('workflow_id must be a valid UUID.').nullable().optional(),
 })
 
 export type TaskCreate = z.infer<typeof TaskCreateSchema>

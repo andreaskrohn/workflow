@@ -57,6 +57,8 @@ export interface UpdateTaskInput {
   position_x?: number | null
   position_y?: number | null
   end_goal?: string | null
+  /** Pass `null` to move the task to the inbox (no workflow). */
+  workflow_id?: string | null
 }
 
 // ── Functions ─────────────────────────────────────────────────────────────────
@@ -111,12 +113,22 @@ export function getTaskById(db: Database.Database, id: string): Task | undefined
  *
  * @param db                       Open better-sqlite3 database instance.
  * @param options.includeArchived  When `true`, archived tasks are included.
+ * @param options.workflowId       Filter to tasks belonging to this workflow.
+ * @param options.inbox            When `true`, returns only inbox tasks:
+ *                                 workflow_id IS NULL AND archived_at IS NULL.
  * @returns                        Task rows ordered by `created_at` descending.
  */
 export function listTasks(
   db: Database.Database,
-  options: { includeArchived?: boolean; workflowId?: string } = {},
+  options: { includeArchived?: boolean; workflowId?: string; inbox?: boolean } = {},
 ): Task[] {
+  if (options.inbox) {
+    return db
+      .prepare(
+        'SELECT * FROM tasks WHERE workflow_id IS NULL AND archived_at IS NULL ORDER BY created_at DESC',
+      )
+      .all() as Task[]
+  }
   if (options.workflowId) {
     const sql = options.includeArchived
       ? 'SELECT * FROM tasks WHERE workflow_id = ? ORDER BY created_at DESC'
@@ -163,6 +175,7 @@ export function updateTask(
         position_x  = ?,
         position_y  = ?,
         end_goal    = ?,
+        workflow_id = ?,
         updated_at  = ?
     WHERE id = ?
   `).run(
@@ -176,6 +189,7 @@ export function updateTask(
     'position_x' in input ? input.position_x : existing.position_x,
     'position_y' in input ? input.position_y : existing.position_y,
     'end_goal' in input ? input.end_goal : existing.end_goal,
+    'workflow_id' in input ? input.workflow_id : existing.workflow_id,
     now,
     id,
   )

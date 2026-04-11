@@ -8,7 +8,8 @@ import { ZodError } from 'zod'
 
 export async function GET(req: NextRequest) {
   const workflowId = req.nextUrl.searchParams.get('workflow_id') ?? undefined
-  const tasks = listTasks(rawDb, { workflowId })
+  const inbox = req.nextUrl.searchParams.get('inbox') === '1'
+  const tasks = listTasks(rawDb, { workflowId, inbox })
   return NextResponse.json(tasks)
 }
 
