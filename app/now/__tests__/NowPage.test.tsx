@@ -71,8 +71,13 @@ beforeEach(() => {
 function setupFetch(tasks: Task[] = [task1, task2, task3]) {
   mockFetch.mockImplementation((url: string) => {
     if (url === '/api/tasks/now') return Promise.resolve(ok(tasks))
+    if (url.startsWith('/api/tasks/')) return Promise.resolve(ok(tasks[0]))
     return Promise.reject(new Error(`Unexpected fetch: ${url}`))
   })
+}
+
+function keydown(key: string, opts: KeyboardEventInit = {}) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...opts }))
 }
 
 // ── Initial data loading ──────────────────────────────────────────────────────
@@ -209,4 +214,191 @@ it('shows a loading indicator before data arrives', async () => {
   expect(screen.getByText(/loading/i)).toBeInTheDocument()
 
   await act(async () => { resolve(ok([task1])) })
+})
+
+// ── j/k keyboard navigation ───────────────────────────────────────────────────
+
+it('pressing j sets aria-current on the first item', async () => {
+  setupFetch([task1, task2])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Beta task')).toBeInTheDocument())
+
+  act(() => { keydown('j') })
+
+  const items = screen.getAllByRole('listitem')
+  expect(items[0]).toHaveAttribute('aria-current', 'true')
+})
+
+it('pressing j twice moves focus to the second item', async () => {
+  setupFetch([task1, task2])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Beta task')).toBeInTheDocument())
+
+  act(() => {
+    keydown('j')
+    keydown('j')
+  })
+
+  const items = screen.getAllByRole('listitem')
+  expect(items[0]).not.toHaveAttribute('aria-current')
+  expect(items[1]).toHaveAttribute('aria-current', 'true')
+})
+
+it('pressing k from the second item moves focus back to the first', async () => {
+  setupFetch([task1, task2])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Beta task')).toBeInTheDocument())
+
+  act(() => {
+    keydown('j')
+    keydown('j')
+    keydown('k')
+  })
+
+  const items = screen.getAllByRole('listitem')
+  expect(items[0]).toHaveAttribute('aria-current', 'true')
+  expect(items[1]).not.toHaveAttribute('aria-current')
+})
+
+it('j does not go below the last item', async () => {
+  setupFetch([task1])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
+
+  act(() => {
+    keydown('j')
+    keydown('j')
+    keydown('j')
+  })
+
+  const items = screen.getAllByRole('listitem')
+  expect(items[0]).toHaveAttribute('aria-current', 'true')
+})
+
+it('k does not go above the first item', async () => {
+  setupFetch([task1, task2])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Beta task')).toBeInTheDocument())
+
+  act(() => {
+    keydown('j')
+    keydown('k')
+    keydown('k')
+  })
+
+  const items = screen.getAllByRole('listitem')
+  expect(items[0]).toHaveAttribute('aria-current', 'true')
+})
+
+// ── c — complete focused task ─────────────────────────────────────────────────
+
+it('pressing c with no focused task does nothing', async () => {
+  setupFetch([task1, task2])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
+
+  // No j pressed — focusedIndex is null.
+  act(() => { keydown('c') })
+
+  // Both tasks still visible, no PATCH fired.
+  expect(screen.getByText('Alpha task')).toBeInTheDocument()
+  expect(screen.getByText('Beta task')).toBeInTheDocument()
+  const patchCalls = mockFetch.mock.calls.filter(([url, init]: [string, RequestInit | undefined]) =>
+    url.startsWith('/api/tasks/') && init?.method === 'PATCH',
+  )
+  expect(patchCalls).toHaveLength(0)
+})
+
+it('pressing c removes the focused task from the list', async () => {
+  setupFetch([task1, task2])
+  wrap(<NowPage />)
+
+  // Sorted: Beta (due 1M) first, Alpha (due 2M) second.
+  await waitFor(() => expect(screen.getByText('Beta task')).toBeInTheDocument())
+
+  // j and c must be in separate act() calls so React re-renders and the
+  // useKeyboardShortcuts ref is updated with the new focusedIndex before c fires.
+  act(() => { keydown('j') }) // focus first item (Beta)
+  await act(async () => { keydown('c') }) // complete Beta
+
+  await waitFor(() => expect(screen.queryByText('Beta task')).toBeNull())
+  expect(screen.getByText('Alpha task')).toBeInTheDocument()
+})
+
+it('pressing c sends PATCH status=done for the focused task', async () => {
+  setupFetch([task2]) // Beta (due 1M)
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Beta task')).toBeInTheDocument())
+
+  act(() => { keydown('j') })
+  await act(async () => { keydown('c') })
+
+  const patchCalls = mockFetch.mock.calls.filter(([url, init]: [string, RequestInit | undefined]) =>
+    url === `/api/tasks/${task2.id}` && init?.method === 'PATCH',
+  )
+  expect(patchCalls).toHaveLength(1)
+  const body = JSON.parse(patchCalls[0][1].body as string)
+  expect(body.status).toBe('done')
+})
+
+// ── Cmd+Z undo ────────────────────────────────────────────────────────────────
+
+it('Cmd+Z after completion restores the task to the list', async () => {
+  setupFetch([task1])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
+
+  act(() => { keydown('j') })
+  await act(async () => { keydown('c') })
+
+  await waitFor(() => expect(screen.queryByText('Alpha task')).toBeNull())
+
+  await act(async () => { keydown('z', { metaKey: true }) })
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
+})
+
+it('Cmd+Z sends PATCH to restore the previous status', async () => {
+  setupFetch([task1])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
+
+  act(() => { keydown('j') })
+  await act(async () => { keydown('c') })
+
+  await waitFor(() => expect(screen.queryByText('Alpha task')).toBeNull())
+
+  await act(async () => { keydown('z', { metaKey: true }) })
+
+  const calls = mockFetch.mock.calls as [string, RequestInit][]
+  const undoCall = calls.find(([url, init]: [string, RequestInit | undefined]) =>
+    url === `/api/tasks/${task1.id}` && init?.method === 'PATCH' &&
+    JSON.parse(init.body as string).status === task1.status,
+  )
+  expect(undoCall).toBeDefined()
+})
+
+it('Ctrl+Z also triggers undo', async () => {
+  setupFetch([task1])
+  wrap(<NowPage />)
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
+
+  act(() => { keydown('j') })
+  await act(async () => { keydown('c') })
+
+  await waitFor(() => expect(screen.queryByText('Alpha task')).toBeNull())
+
+  await act(async () => { keydown('z', { ctrlKey: true }) })
+
+  await waitFor(() => expect(screen.getByText('Alpha task')).toBeInTheDocument())
 })

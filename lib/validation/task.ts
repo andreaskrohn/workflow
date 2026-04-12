@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const TaskCreateSchema = z.object({
-  workflow_id: z.string().uuid('workflow_id must be a valid UUID.'),
+  workflow_id: z.string().uuid('workflow_id must be a valid UUID.').nullable().optional(),
 
   title: z
     .string()

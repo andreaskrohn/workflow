@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { Task } from '@/lib/db/repositories/taskRepository'
 import { mutate } from '@/lib/utils/mutate'
 import { handleApiError, responseToApiError } from '@/lib/utils/errors'
+import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts'
 import { useToast } from './ToastProvider'
 
 // ── Client-side schema ────────────────────────────────────────────────────────
@@ -33,20 +34,8 @@ export function QuickCaptureModal({ workflowId, onCreated }: QuickCaptureModalPr
   const [saving, setSaving] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
 
-  // Global shortcut: 'n' opens the modal, guarded so it does not fire while
-  // the user is typing in another input, textarea, or select.
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if ((e.target as HTMLElement).isContentEditable) return
-      e.preventDefault()
-      setOpen(true)
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  // Global shortcut: 'n' opens the modal (guardEditable is the default: true).
+  useKeyboardShortcuts([{ key: 'n', handler: () => setOpen(true) }])
 
   // Focus the title input whenever the modal opens.
   useEffect(() => {
