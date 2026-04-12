@@ -41,8 +41,12 @@ function Consumer() {
   )
 }
 
-function wrap(ui: React.ReactElement = <Consumer />) {
-  return render(<TagContextProvider>{ui}</TagContextProvider>)
+async function wrap(ui: React.ReactElement = <Consumer />) {
+  let result!: ReturnType<typeof render>
+  await act(async () => {
+    result = render(<TagContextProvider>{ui}</TagContextProvider>)
+  })
+  return result
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -64,14 +68,14 @@ afterEach(() => {
 
 it('fetches tags from GET /api/tags on mount', async () => {
   ;(global.fetch as jest.Mock).mockResolvedValue(okJson([TAG_A, TAG_B]))
-  wrap()
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/tags'))
+  await wrap()
+  expect(global.fetch).toHaveBeenCalledWith('/api/tags')
 })
 
 it('renders fetched tags', async () => {
   ;(global.fetch as jest.Mock).mockResolvedValue(okJson([TAG_A, TAG_B]))
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('tag-tag-1')).toHaveTextContent('frontend'))
+  await wrap()
+  expect(screen.getByTestId('tag-tag-1')).toHaveTextContent('frontend')
   expect(screen.getByTestId('tag-tag-2')).toHaveTextContent('backend')
   expect(screen.getByTestId('count')).toHaveTextContent('2')
 })
@@ -81,7 +85,8 @@ it('loading is true before fetch resolves and false after', async () => {
   ;(global.fetch as jest.Mock).mockReturnValue(
     new Promise<Response>((r) => { resolve = r }),
   )
-  wrap()
+  // Don't await — fetch is pending, so we want to check loading=true synchronously
+  act(() => { render(<TagContextProvider><Consumer /></TagContextProvider>) })
   expect(screen.getByTestId('loading')).toHaveTextContent('true')
 
   await act(async () => { resolve(okJson([TAG_A])) })
@@ -90,8 +95,8 @@ it('loading is true before fetch resolves and false after', async () => {
 
 it('leaves tags empty and loading false on fetch error', async () => {
   ;(global.fetch as jest.Mock).mockRejectedValue(new Error('network'))
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
+  await wrap()
+  expect(screen.getByTestId('loading')).toHaveTextContent('false')
   expect(screen.getByTestId('count')).toHaveTextContent('0')
 })
 
@@ -102,8 +107,8 @@ it('addTag posts to /api/tags with CSRF token', async () => {
     .mockResolvedValueOnce(okJson([TAG_A]))            // initial fetch
     .mockResolvedValueOnce(okJson({ id: 'tag-3', name: 'newTag', created_at: 3000 }, 201))
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('1')
 
   fireEvent.click(screen.getByRole('button', { name: 'add' }))
 
@@ -125,8 +130,8 @@ it('addTag appends the new tag to the list', async () => {
     .mockResolvedValueOnce(okJson([TAG_A]))
     .mockResolvedValueOnce(okJson(newTag, 201))
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('1')
 
   fireEvent.click(screen.getByRole('button', { name: 'add' }))
 
@@ -155,8 +160,7 @@ it('addTag returns the new tag on success', async () => {
     )
   }
 
-  wrap(<Consumer2 />)
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/tags'))
+  await wrap(<Consumer2 />)
 
   fireEvent.click(screen.getByRole('button', { name: 'add' }))
 
@@ -183,8 +187,7 @@ it('addTag returns null when the server responds with an error', async () => {
     )
   }
 
-  wrap(<Consumer2 />)
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/tags'))
+  await wrap(<Consumer2 />)
 
   fireEvent.click(screen.getByRole('button', { name: 'add' }))
 
@@ -196,8 +199,8 @@ it('addTag does not mutate state when server returns error', async () => {
     .mockResolvedValueOnce(okJson([TAG_A]))
     .mockResolvedValueOnce(errJson(422, { error: 'Validation error.' }))
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('1')
 
   fireEvent.click(screen.getByRole('button', { name: 'add' }))
 
@@ -213,8 +216,8 @@ it('removeTag sends DELETE /api/tags/:id with CSRF token', async () => {
     .mockResolvedValueOnce(okJson([TAG_A, TAG_B]))
     .mockResolvedValueOnce({ ok: true, status: 204 } as unknown as Response)
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('2'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('2')
 
   fireEvent.click(screen.getByRole('button', { name: 'remove' }))
 
@@ -234,8 +237,8 @@ it('removeTag removes the tag from the list', async () => {
     .mockResolvedValueOnce(okJson([TAG_A, TAG_B]))
     .mockResolvedValueOnce({ ok: true, status: 204 } as unknown as Response)
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('2'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('2')
 
   fireEvent.click(screen.getByRole('button', { name: 'remove' }))
 
@@ -249,8 +252,8 @@ it('removeTag does not mutate state when server returns error', async () => {
     .mockResolvedValueOnce(okJson([TAG_A, TAG_B]))
     .mockResolvedValueOnce(errJson(404, { error: 'Tag not found.' }))
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('2'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('2')
 
   fireEvent.click(screen.getByRole('button', { name: 'remove' }))
 
@@ -263,8 +266,8 @@ it('removeTag silently ignores network errors', async () => {
     .mockResolvedValueOnce(okJson([TAG_A]))
     .mockRejectedValueOnce(new Error('network'))
 
-  wrap()
-  await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
+  await wrap()
+  expect(screen.getByTestId('count')).toHaveTextContent('1')
 
   await expect(
     act(async () => {
@@ -297,10 +300,12 @@ it('useTagContext outside provider returns safe defaults (no throw)', () => {
 
 it('TagContextProvider renders its children', async () => {
   ;(global.fetch as jest.Mock).mockResolvedValue(okJson([]))
-  render(
-    <TagContextProvider>
-      <span data-testid="child">hello</span>
-    </TagContextProvider>,
-  )
+  await act(async () => {
+    render(
+      <TagContextProvider>
+        <span data-testid="child">hello</span>
+      </TagContextProvider>,
+    )
+  })
   expect(screen.getByTestId('child')).toHaveTextContent('hello')
 })

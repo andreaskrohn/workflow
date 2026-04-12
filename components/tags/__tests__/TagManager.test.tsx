@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 import React from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import TagManager from '../TagManager'
 import { TagContextProvider } from '../TagContext'
 import type { Tag } from '@/lib/db/repositories/tagRepository'
@@ -41,15 +41,20 @@ const { getCsrfToken } = jest.requireMock('@/lib/middleware/csrf') as {
 }
 
 /**
- * Renders TagManager inside TagContextProvider.
+ * Renders TagManager inside TagContextProvider, waiting for the initial
+ * fetches (global tags + task tags) to settle before returning.
  * fetch is expected to already be mocked by the caller.
  */
-function wrap(taskId: string) {
-  return render(
-    <TagContextProvider>
-      <TagManager taskId={taskId} />
-    </TagContextProvider>,
-  )
+async function wrap(taskId: string) {
+  let result!: ReturnType<typeof render>
+  await act(async () => {
+    result = render(
+      <TagContextProvider>
+        <TagManager taskId={taskId} />
+      </TagContextProvider>,
+    )
+  })
+  return result
 }
 
 /**
@@ -94,27 +99,21 @@ afterEach(() => {
 
 it('renders without crashing', async () => {
   mockFetch()
-  expect(() => wrap(TASK_ID)).not.toThrow()
-  // Wait for initial fetch to settle so act() warnings are avoided
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${TASK_ID}/tags`))
+  await expect(wrap(TASK_ID)).resolves.not.toThrow()
 })
 
 it('fetches /api/tasks/[taskId]/tags on mount', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${TASK_ID}/tags`),
-  )
+  await wrap(TASK_ID)
+  expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${TASK_ID}/tags`)
 })
 
 it('taskId is NOT fetched from context — it comes from props', async () => {
   // Render with a specific taskId; verify the URL contains that exact id,
   // not a different one that might hypothetically come from context.
   mockFetch({ taskId: OTHER_TASK_ID })
-  wrap(OTHER_TASK_ID)
-  await waitFor(() =>
-    expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${OTHER_TASK_ID}/tags`),
-  )
+  await wrap(OTHER_TASK_ID)
+  expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${OTHER_TASK_ID}/tags`)
   expect(global.fetch).not.toHaveBeenCalledWith(`/api/tasks/${TASK_ID}/tags`)
 })
 
@@ -122,61 +121,48 @@ it('taskId is NOT fetched from context — it comes from props', async () => {
 
 it('shows a chip for each tag currently on the task', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A, TAG_B] })
-  wrap(TASK_ID)
-  await waitFor(() => expect(screen.getByText('frontend')).toBeInTheDocument())
+  await wrap(TASK_ID)
+  expect(screen.getByText('frontend')).toBeInTheDocument()
   expect(screen.getByText('backend')).toBeInTheDocument()
 })
 
 it('each chip has a remove button with an accessible label', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 })
 
 it('shows no chips when the task has no tags', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [] })
-  wrap(TASK_ID)
-  // Wait for loading to complete
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${TASK_ID}/tags`))
-  await waitFor(() => expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull())
+  await wrap(TASK_ID)
+  expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull()
 })
 
 // ── Available (add) buttons ───────────────────────────────────────────────────
 
 it('shows an add button for each global tag NOT yet on the task', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B, TAG_C], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add backend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add backend' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Add design' })).toBeInTheDocument()
 })
 
 it('does not show an add button for a tag already on the task', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add backend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add backend' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Add frontend' })).toBeNull()
 })
 
 it('shows no add buttons when all global tags are assigned', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A, TAG_B] })
-  wrap(TASK_ID)
-  await waitFor(() => {
-    expect(screen.queryByRole('button', { name: /^Add / })).toBeNull()
-  })
+  await wrap(TASK_ID)
+  expect(screen.queryByRole('button', { name: /^Add / })).toBeNull()
 })
 
 it('shows no add buttons when there are no global tags', async () => {
   mockFetch({ globalTags: [], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${TASK_ID}/tags`),
-  )
+  await wrap(TASK_ID)
   expect(screen.queryByRole('button', { name: /^Add / })).toBeNull()
 })
 
@@ -184,10 +170,8 @@ it('shows no add buttons when there are no global tags', async () => {
 
 it('clicking an add button POSTs to /api/tasks/[taskId]/tags', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Add frontend' }))
 
@@ -201,10 +185,8 @@ it('clicking an add button POSTs to /api/tasks/[taskId]/tags', async () => {
 
 it('add POST sends correct tagId in body', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Add frontend' }))
 
@@ -220,10 +202,8 @@ it('add POST sends correct tagId in body', async () => {
 
 it('add POST includes CSRF token in headers', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Add frontend' }))
 
@@ -239,10 +219,8 @@ it('add POST includes CSRF token in headers', async () => {
 
 it('after successful add, a chip appears for the new tag', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Add frontend' }))
 
@@ -253,10 +231,8 @@ it('after successful add, a chip appears for the new tag', async () => {
 
 it('after successful add, the tag disappears from the available list', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Add frontend' }))
 
@@ -273,10 +249,8 @@ it('add fails → chip is NOT added', async () => {
     taskTags: [],
     addResponse: () => serverError(),
   })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Add frontend' }))
 
@@ -295,10 +269,8 @@ it('add fails → chip is NOT added', async () => {
 
 it('clicking a remove button DELETEs /api/tasks/[taskId]/tags/[tagId]', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove frontend' }))
 
@@ -312,10 +284,8 @@ it('clicking a remove button DELETEs /api/tasks/[taskId]/tags/[tagId]', async ()
 
 it('remove DELETE includes CSRF token in headers', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove frontend' }))
 
@@ -331,10 +301,8 @@ it('remove DELETE includes CSRF token in headers', async () => {
 
 it('after successful remove, the chip disappears', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove frontend' }))
 
@@ -345,10 +313,8 @@ it('after successful remove, the chip disappears', async () => {
 
 it('after successful remove, the tag reappears in the available list', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A] })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove frontend' }))
 
@@ -363,10 +329,8 @@ it('remove fails → chip remains', async () => {
     taskTags: [TAG_A],
     removeResponse: () => serverError(),
   })
-  wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove frontend' }))
 
@@ -385,10 +349,8 @@ it('remove fails → chip remains', async () => {
 
 it('when taskId prop changes, refetches tags for the new task', async () => {
   mockFetch({ globalTags: [TAG_A, TAG_B], taskTags: [TAG_A], taskId: TASK_ID })
-  const { rerender } = wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  const { rerender } = await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   // Switch to a different task that has TAG_B
   ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
@@ -398,27 +360,23 @@ it('when taskId prop changes, refetches tags for the new task', async () => {
     return Promise.resolve(okJson([]))
   })
 
-  rerender(
-    <TagContextProvider>
-      <TagManager taskId={OTHER_TASK_ID} />
-    </TagContextProvider>,
-  )
+  await act(async () => {
+    rerender(
+      <TagContextProvider>
+        <TagManager taskId={OTHER_TASK_ID} />
+      </TagContextProvider>,
+    )
+  })
 
-  await waitFor(() =>
-    expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${OTHER_TASK_ID}/tags`),
-  )
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove backend' })).toBeInTheDocument(),
-  )
+  expect(global.fetch).toHaveBeenCalledWith(`/api/tasks/${OTHER_TASK_ID}/tags`)
+  expect(screen.getByRole('button', { name: 'Remove backend' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Remove frontend' })).toBeNull()
 })
 
 it('when taskId prop changes, old chips are cleared before new ones load', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [TAG_A], taskId: TASK_ID })
-  const { rerender } = wrap(TASK_ID)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument(),
-  )
+  const { rerender } = await wrap(TASK_ID)
+  expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
 
   // New task fetch is slow — use a pending promise
   let resolveNew!: (v: Response) => void
@@ -429,18 +387,18 @@ it('when taskId prop changes, old chips are cleared before new ones load', async
     return Promise.resolve(okJson([]))
   })
 
-  rerender(
-    <TagContextProvider>
-      <TagManager taskId={OTHER_TASK_ID} />
-    </TagContextProvider>,
-  )
+  act(() => {
+    rerender(
+      <TagContextProvider>
+        <TagManager taskId={OTHER_TASK_ID} />
+      </TagContextProvider>,
+    )
+  })
 
   // Old chips should be gone while new fetch is pending
-  await waitFor(() =>
-    expect(screen.queryByRole('button', { name: 'Remove frontend' })).toBeNull(),
-  )
+  expect(screen.queryByRole('button', { name: 'Remove frontend' })).toBeNull()
 
-  resolveNew(okJson([]))
+  await act(async () => { resolveNew(okJson([])) })
 })
 
 // ── Context provides tags — not the taskId ────────────────────────────────────
@@ -455,12 +413,10 @@ it('reads the global tag list from TagContext, not from a separate fetch', async
     return Promise.resolve(okJson([]))
   })
 
-  wrap(TASK_ID)
+  await wrap(TASK_ID)
 
   // All three global tags should appear as available (none assigned)
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument(),
-  )
+  expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Add backend' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Add design' })).toBeInTheDocument()
 })

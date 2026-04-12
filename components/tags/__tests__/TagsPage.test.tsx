@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { TagsPage } from '../TagsPage'
 import type { Tag } from '@/lib/db/repositories/tagRepository'
 
@@ -147,9 +147,11 @@ it('calls addTag with the trimmed input value on submit', async () => {
   fireEvent.change(screen.getByRole('textbox', { name: /tag name/i }), {
     target: { value: '  design  ' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  })
 
-  await waitFor(() => expect(addTag).toHaveBeenCalledWith('design'))
+  expect(addTag).toHaveBeenCalledWith('design')
 })
 
 it('clears the input after a successful create', async () => {
@@ -159,9 +161,11 @@ it('clears the input after a successful create', async () => {
 
   const input = screen.getByRole('textbox', { name: /tag name/i })
   fireEvent.change(input, { target: { value: 'design' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  })
 
-  await waitFor(() => expect(input).toHaveValue(''))
+  expect(input).toHaveValue('')
 })
 
 it('disables the Create tag button while the request is in flight', async () => {
@@ -179,7 +183,7 @@ it('disables the Create tag button while the request is in flight', async () => 
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /creating/i })).toBeDisabled(),
   )
-  resolve(null)
+  await act(async () => { resolve(null) })
 })
 
 // ── addTag failure ────────────────────────────────────────────────────────────
@@ -191,9 +195,11 @@ it('shows an error message when addTag returns null', async () => {
   fireEvent.change(screen.getByRole('textbox', { name: /tag name/i }), {
     target: { value: 'design' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  })
 
-  expect(await screen.findByText(/could not create tag/i)).toBeInTheDocument()
+  expect(screen.getByText(/could not create tag/i)).toBeInTheDocument()
 })
 
 it('does not clear the input when addTag fails', async () => {
@@ -202,9 +208,11 @@ it('does not clear the input when addTag fails', async () => {
 
   const input = screen.getByRole('textbox', { name: /tag name/i })
   fireEvent.change(input, { target: { value: 'design' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Create tag' }))
+  })
 
-  await screen.findByText(/could not create tag/i)
+  expect(screen.getByText(/could not create tag/i)).toBeInTheDocument()
   expect(input).toHaveValue('design')
 })
 
