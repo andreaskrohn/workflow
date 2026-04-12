@@ -1,3 +1,5 @@
-export default function TagsPage() {
-  return <h1 className="text-2xl font-semibold">Tags</h1>
-}
+'use client'
+
+import { TagsPage } from '@/components/tags/TagsPage'
+
+export default TagsPage
