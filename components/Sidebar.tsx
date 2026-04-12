@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCsrf } from '@/lib/csrf-context'
 import { useToast } from '@/components/shared/ToastProvider'
+import { SearchBar } from '@/components/shared/SearchBar'
 
 const NAV_LINKS = [
   { href: '/inbox', label: 'Inbox' },
@@ -36,6 +37,7 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-screen w-48 shrink-0 flex-col border-r border-gray-800 bg-gray-900 p-4">
+      <SearchBar />
       <nav className="flex flex-1 flex-col gap-1">
         {NAV_LINKS.map(({ href, label }) => (
           <Link
