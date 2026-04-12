@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { marked } from 'marked'
 import type { Workflow } from '@/lib/db/repositories/workflowRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { handleApiError, responseToApiError } from '@/lib/utils/errors'
 import { useToast } from '@/components/shared/ToastProvider'
 import { tsToDateInput, dateInputToTs, addDays, addMonths, todayString } from '@/lib/utils/dates'
@@ -49,10 +49,9 @@ export function WorkflowDetailPanel({ workflow, onClose, onUpdated }: WorkflowDe
     }
     setSaving(true)
     try {
-      const token = await getCsrfToken()
-      const res = await fetch(`/api/workflows/${workflow.id}`, {
+      const res = await mutate(`/api/workflows/${workflow.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
           end_goal: endGoal.trim() || null,

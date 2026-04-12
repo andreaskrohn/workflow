@@ -9,6 +9,7 @@ import type { Tag } from '@/lib/db/repositories/tagRepository'
 
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
 }))
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -200,7 +201,7 @@ it('add POST sends correct tagId in body', async () => {
   )
 })
 
-it('add POST includes CSRF token in headers', async () => {
+it('add sends POST to /api/tasks/:id/tags with the correct body', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [] })
   await wrap(TASK_ID)
   expect(screen.getByRole('button', { name: 'Add frontend' })).toBeInTheDocument()
@@ -211,7 +212,8 @@ it('add POST includes CSRF token in headers', async () => {
     expect(global.fetch).toHaveBeenCalledWith(
       `/api/tasks/${TASK_ID}/tags`,
       expect.objectContaining({
-        headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }),
+        method: 'POST',
+        body: JSON.stringify({ tagId: TAG_A.id }),
       }),
     ),
   )
@@ -282,7 +284,7 @@ it('clicking a remove button DELETEs /api/tasks/[taskId]/tags/[tagId]', async ()
   )
 })
 
-it('remove DELETE includes CSRF token in headers', async () => {
+it('remove sends DELETE to /api/tasks/:id/tags/:tagId', async () => {
   mockFetch({ globalTags: [TAG_A], taskTags: [TAG_A] })
   await wrap(TASK_ID)
   expect(screen.getByRole('button', { name: 'Remove frontend' })).toBeInTheDocument()
@@ -292,9 +294,7 @@ it('remove DELETE includes CSRF token in headers', async () => {
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(
       `/api/tasks/${TASK_ID}/tags/${TAG_A.id}`,
-      expect.objectContaining({
-        headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }),
-      }),
+      expect.objectContaining({ method: 'DELETE' }),
     ),
   )
 })

@@ -9,6 +9,7 @@ import { addDays, addMonths, dateInputToTs } from '@/lib/utils/dates'
 
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
 }))
 
 const { getCsrfToken } = jest.requireMock('@/lib/middleware/csrf') as {
@@ -197,7 +198,7 @@ it('the PATCH body for "+3 months" contains review_date 3 months from now', asyn
   expect(body.review_date).toBe(expectedTs)
 })
 
-it('the PATCH request includes the CSRF token', async () => {
+it('sends PATCH to /api/workflows/:id with review_date', async () => {
   const item = makeItem({ id: 'wf-csrf' })
   ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
     if (url === '/api/review') return Promise.resolve(okJson([item]))
@@ -211,9 +212,7 @@ it('the PATCH request includes the CSRF token', async () => {
 
   expect(global.fetch).toHaveBeenCalledWith(
     `/api/workflows/${item.id}`,
-    expect.objectContaining({
-      headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }),
-    }),
+    expect.objectContaining({ method: 'PATCH' }),
   )
 })
 

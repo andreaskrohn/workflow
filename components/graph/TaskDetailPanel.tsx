@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import type { Task } from '@/lib/db/repositories/taskRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { useToast } from '@/components/shared/ToastProvider'
 import { handleApiError, responseToApiError } from '@/lib/utils/errors'
 import { tsToDateInput, dateInputToTs, addDays, addMonths, todayString } from '@/lib/utils/dates'
@@ -64,10 +64,9 @@ export function TaskDetailPanel({ task, onClose, onUpdated }: TaskDetailPanelPro
   async function handleSave() {
     setSaving(true)
     try {
-      const token = await getCsrfToken()
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await mutate(`/api/tasks/${task.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
           description: description || null,

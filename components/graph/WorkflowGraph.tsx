@@ -20,6 +20,7 @@ import dagre from 'dagre'
 import type { Task } from '@/lib/db/repositories/taskRepository'
 import type { Workflow } from '@/lib/db/repositories/workflowRepository'
 import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { useToast } from '@/components/shared/ToastProvider'
 import { TaskNode, type TaskNodeData } from './TaskNode'
 import { EndGoalNode, type EndGoalNodeData } from './EndGoalNode'
@@ -644,11 +645,7 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
     const { workflowId } = workflowActionDialog
     setWorkflowActionDialog(null)
     try {
-      const token = await getToken()
-      await fetch(`/api/workflows/${workflowId}/archive`, {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': token },
-      })
+      await mutate(`/api/workflows/${workflowId}/archive`, { method: 'POST' })
     } catch { /* non-fatal — canvas is updated regardless */ }
     removeWorkflowFromCanvas(workflowId)
   }
@@ -661,10 +658,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
       if (!workflowId) return
       setIsEvaluating(true)
       try {
-        const token = await getToken()
-        const res = await fetch(`/api/tasks/${id}`, {
+        const res = await mutate(`/api/tasks/${id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
         })
         if (!res.ok) { showToast('Failed to update task status.'); return }
@@ -723,10 +719,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
 
       setIsEvaluating(true)
       try {
-        const token = await getToken()
-        const res = await fetch('/api/tasks', {
+        const res = await mutate('/api/tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workflow_id: workflowId, title: 'New task', position_x: x, position_y: relY }),
         })
         if (!res.ok) { showToast('Failed to create task.'); return }
@@ -786,17 +781,16 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
 
       setIsEvaluating(true)
       try {
-        const token = await getToken()
-        const taskRes = await fetch('/api/tasks', {
+        const taskRes = await mutate('/api/tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workflow_id: workflowId, title: 'New task', position_x: x, position_y: relY }),
         })
         if (!taskRes.ok) { showToast('Failed to create task.'); return }
         const newTask: Task = await taskRes.json()
-        const depRes = await fetch('/api/dependencies', {
+        const depRes = await mutate('/api/dependencies', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ task_id: newTask.id, depends_on_task_id: sourceId }),
         })
         const newDep: ApiDep | null = depRes.ok ? await depRes.json() : null
@@ -858,17 +852,16 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
 
       setIsEvaluating(true)
       try {
-        const token = await getToken()
-        const taskRes = await fetch('/api/tasks', {
+        const taskRes = await mutate('/api/tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workflow_id: workflowId, title: 'New task', position_x: x, position_y: relY }),
         })
         if (!taskRes.ok) { showToast('Failed to create task.'); return }
         const newTask: Task = await taskRes.json()
-        const depRes = await fetch('/api/dependencies', {
+        const depRes = await mutate('/api/dependencies', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ task_id: targetId, depends_on_task_id: newTask.id }),
         })
         const newDep: ApiDep | null = depRes.ok ? await depRes.json() : null
@@ -942,10 +935,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
 
       setIsEvaluating(true)
       try {
-        const token = await getToken()
-        const taskRes = await fetch('/api/tasks', {
+        const taskRes = await mutate('/api/tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workflow_id: workflowId, title: 'New task', position_x: x, position_y: relY }),
         })
         if (!taskRes.ok) { showToast('Failed to create task.'); return }
@@ -953,9 +945,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
 
         const newDeps: ApiDep[] = []
         for (const termId of terminalIds) {
-          const depRes = await fetch('/api/dependencies', {
+          const depRes = await mutate('/api/dependencies', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ task_id: newTask.id, depends_on_task_id: termId }),
           })
           if (depRes.ok) newDeps.push(await depRes.json())
@@ -1004,10 +996,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
   const handleSaveEndGoal = useCallback(
     async (workflowId: string, newEndGoal: string | null) => {
       try {
-        const token = await getToken()
-        const res = await fetch(`/api/workflows/${workflowId}`, {
+        const res = await mutate(`/api/workflows/${workflowId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ end_goal: newEndGoal }),
         })
         if (!res.ok) { showToast('Failed to save end goal.'); return }
@@ -1021,10 +1012,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
   const handleSaveName = useCallback(
     async (workflowId: string, newName: string) => {
       try {
-        const token = await getToken()
-        const res = await fetch(`/api/workflows/${workflowId}`, {
+        const res = await mutate(`/api/workflows/${workflowId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: newName }),
         })
         if (!res.ok) { showToast('Failed to rename workflow.'); return }
@@ -1049,10 +1039,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
         const offset = getWorkflowOffset(wfId)
         const relY = absoluteToRelative(node.position.y, offset)
         try {
-          const token = await getToken()
-          await fetch(`/api/workflows/${wfId}`, {
+          await mutate(`/api/workflows/${wfId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ eg_position_x: node.position.x, eg_position_y: relY }),
           })
           // Update local workflow data so position survives collapse/expand
@@ -1094,10 +1083,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
       setWorkflowsData(newWfsData)
 
       try {
-        const token = await getToken()
-        await fetch(`/api/tasks/${node.id}`, {
+        await mutate(`/api/tasks/${node.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ position_x: node.position.x, position_y: relY }),
         })
       } catch { /* non-fatal */ }
@@ -1141,10 +1129,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
       const workflowId = srcWorkflow!
       setIsEvaluating(true)
       try {
-        const token = await getToken()
-        const res = await fetch('/api/dependencies', {
+        const res = await mutate('/api/dependencies', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ task_id: connection.target, depends_on_task_id: connection.source }),
         })
         if (res.status === 409) {
@@ -1247,8 +1234,7 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
           )
 
           try {
-            const token = await getToken()
-            await fetch(`/api/tasks/${node.id}/archive`, { method: 'POST', headers: { 'X-CSRF-Token': token } })
+            await mutate(`/api/tasks/${node.id}/archive`, { method: 'POST' })
           } catch { /* non-fatal */ }
 
           const newWfsData = workflowsDataRef.current.map((wd) =>
@@ -1298,8 +1284,7 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
 
   async function doArchiveDep(id: string) {
     try {
-      const token = await getToken()
-      await fetch(`/api/dependencies/${id}/archive`, { method: 'POST', headers: { 'X-CSRF-Token': token } })
+      await mutate(`/api/dependencies/${id}/archive`, { method: 'POST' })
     } catch { /* non-fatal */ }
   }
 
@@ -1311,10 +1296,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
     if (snapshot.type === 'dep') {
       const { taskId, dependsOnTaskId, workflowId } = snapshot
       try {
-        const token = await getToken()
-        const res = await fetch('/api/dependencies', {
+        const res = await mutate('/api/dependencies', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ task_id: taskId, depends_on_task_id: dependsOnTaskId }),
         })
         if (!res.ok) { showToast('Could not restore dependency.'); return }
@@ -1336,20 +1320,16 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
     if (snapshot.type === 'task') {
       const { taskId, workflowId, taskNode, task, removedDeps } = snapshot
       try {
-        const token = await getToken()
-        const unarchiveRes = await fetch(`/api/tasks/${taskId}/unarchive`, {
-          method: 'POST',
-          headers: { 'X-CSRF-Token': token },
-        })
+        const unarchiveRes = await mutate(`/api/tasks/${taskId}/unarchive`, { method: 'POST' })
         if (!unarchiveRes.ok) { showToast('Could not restore task.'); return }
         const restoredTask: Task = await unarchiveRes.json()
 
         // Restore deps
         const restoredDeps: ApiDep[] = []
         for (const { taskId: tid, dependsOnTaskId: dtid } of removedDeps) {
-          const depRes = await fetch('/api/dependencies', {
+          const depRes = await mutate('/api/dependencies', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ task_id: tid, depends_on_task_id: dtid }),
           })
           if (depRes.ok) restoredDeps.push(await depRes.json())
@@ -1423,8 +1403,7 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
   async function handleWorkflowCompleted(workflowId: string) {
     setCompletionDialog(null)
     try {
-      const token = await getToken()
-      await fetch(`/api/workflows/${workflowId}/archive`, { method: 'POST', headers: { 'X-CSRF-Token': token } })
+      await mutate(`/api/workflows/${workflowId}/archive`, { method: 'POST' })
     } catch { /* non-fatal */ }
     removeWorkflowFromCanvas(workflowId)
   }
@@ -1441,10 +1420,9 @@ function WorkflowGraphInner({ projectId, initialWorkflowsData }: InnerProps) {
     if (!newWfName.trim()) return
     setCreatingWf(true)
     try {
-      const token = await getToken()
-      const res = await fetch('/api/workflows', {
+      const res = await mutate('/api/workflows', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_id: projectId, name: newWfName.trim(), end_goal: newWfEndGoal.trim() || null }),
       })
       if (!res.ok) { showToast('Failed to create workflow.'); return }

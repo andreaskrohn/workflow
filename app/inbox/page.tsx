@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import type { Task } from '@/lib/db/repositories/taskRepository'
 import type { Workflow } from '@/lib/db/repositories/workflowRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { handleApiError, responseToApiError } from '@/lib/utils/errors'
 import { useToast } from '@/components/shared/ToastProvider'
 
@@ -46,10 +46,9 @@ export default function InboxPage() {
     setAssignErrors((prev) => ({ ...prev, [taskId]: {} }))
 
     try {
-      const token = await getCsrfToken()
-      const res = await fetch(`/api/tasks/${taskId}`, {
+      const res = await mutate(`/api/tasks/${taskId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workflow_id: workflowId }),
       })
       if (!res.ok) throw await responseToApiError(res)

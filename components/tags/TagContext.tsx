@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { Tag } from '@/lib/db/repositories/tagRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 
 // ── FROZEN — Agent E only modifies the internals of these exports. ─────────────
 // The export name TagContextProvider and its prop signature must never change.
@@ -49,13 +49,9 @@ export function TagContextProvider({ children }: { children: React.ReactNode }) 
 
   const addTag = useCallback(async (name: string): Promise<Tag | null> => {
     try {
-      const token = await getCsrfToken()
-      const res = await fetch('/api/tags', {
+      const res = await mutate('/api/tags', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': token,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       })
       if (!res.ok) return null
@@ -69,11 +65,7 @@ export function TagContextProvider({ children }: { children: React.ReactNode }) 
 
   const removeTag = useCallback(async (id: string): Promise<void> => {
     try {
-      const token = await getCsrfToken()
-      const res = await fetch(`/api/tags/${id}`, {
-        method: 'DELETE',
-        headers: { 'X-CSRF-Token': token },
-      })
+      const res = await mutate(`/api/tags/${id}`, { method: 'DELETE' })
       if (res.ok) {
         setTags((prev) => prev.filter((t) => t.id !== id))
       }

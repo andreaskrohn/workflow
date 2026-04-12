@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '/today', label: 'Today' },
   { href: '/graph', label: 'Graph' },
   { href: '/tags', label: 'Tags' },
+  { href: '/by-tag', label: 'By Tag' },
   { href: '/review', label: 'Review' },
   { href: '/log', label: 'Log' },
 ] as const

@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import type { Project } from '@/lib/db/repositories/projectRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { useToast } from '@/components/shared/ToastProvider'
 
 interface ProjectSwitcherProps {
@@ -41,10 +41,9 @@ export function ProjectSwitcher({ projects, selected, onSelect, onProjectCreated
     if (!newName.trim()) return
     setSaving(true)
     try {
-      const token = await getCsrfToken()
-      const res = await fetch('/api/projects', {
+      const res = await mutate('/api/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName.trim() }),
       })
       if (!res.ok) {

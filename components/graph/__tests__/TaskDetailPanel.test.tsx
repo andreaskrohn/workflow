@@ -16,6 +16,7 @@ jest.mock('next/dynamic', () => (_loader: unknown) => {
 
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

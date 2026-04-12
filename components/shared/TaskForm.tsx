@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import type { Task } from '@/lib/db/repositories/taskRepository'
 import { handleApiError, responseToApiError } from '@/lib/utils/errors'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { useToast } from './ToastProvider'
 import { tsToDateInput, dateInputToTs, addDays, addMonths } from '@/lib/utils/dates'
 
@@ -26,10 +26,9 @@ export function TaskForm({ task, workflowId, onSaved, onArchived, onCancel }: Ta
   const [saving, setSaving] = useState(false)
 
   async function submitPatch(body: Record<string, unknown>) {
-    const csrfToken = await getCsrfToken()
-    const res = await fetch(`/api/tasks/${task!.id}`, {
+    const res = await mutate(`/api/tasks/${task!.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
     if (!res.ok) throw await responseToApiError(res)
@@ -49,10 +48,9 @@ export function TaskForm({ task, workflowId, onSaved, onArchived, onCancel }: Ta
           review_date: dateInputToTs(reviewDate),
         })
       } else {
-        const csrfToken = await getCsrfToken()
-        const res = await fetch('/api/tasks', {
+        const res = await mutate('/api/tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, workflow_id: workflowId, defer_date: dateInputToTs(deferDate), review_date: dateInputToTs(reviewDate) }),
         })
         if (!res.ok) throw await responseToApiError(res)
@@ -84,11 +82,7 @@ export function TaskForm({ task, workflowId, onSaved, onArchived, onCancel }: Ta
   async function handleArchive() {
     setSaving(true)
     try {
-      const csrfToken = await getCsrfToken()
-      const res = await fetch(`/api/tasks/${task!.id}/archive`, {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': csrfToken },
-      })
+      const res = await mutate(`/api/tasks/${task!.id}/archive`, { method: 'POST' })
       if (!res.ok) throw await responseToApiError(res)
       onArchived?.()
     } catch (err) {

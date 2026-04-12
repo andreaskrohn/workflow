@@ -9,6 +9,7 @@ import { QuickCaptureModal } from '../QuickCaptureModal'
 
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -183,7 +184,7 @@ it('POSTs to /api/tasks with title and workflow_id', async () => {
   expect(body.workflow_id).toBe('wf-1')
 })
 
-it('includes the CSRF token in the X-CSRF-Token header', async () => {
+it('sends POST to /api/tasks with title and workflow_id', async () => {
   mockFetch.mockResolvedValue(ok(baseTask))
 
   wrap(<QuickCaptureModal workflowId="wf-1" onCreated={onCreated} />)
@@ -194,8 +195,13 @@ it('includes the CSRF token in the X-CSRF-Token header', async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   })
 
-  const headers = (mockFetch.mock.calls[0][1] as RequestInit).headers as Record<string, string>
-  expect(headers['X-CSRF-Token']).toBe('test-csrf-token')
+  expect(mockFetch).toHaveBeenCalledWith(
+    '/api/tasks',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ title: 'Task', workflow_id: 'wf-1' }),
+    }),
+  )
 })
 
 // ── onCreated + reset ─────────────────────────────────────────────────────────

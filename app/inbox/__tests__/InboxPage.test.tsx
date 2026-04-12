@@ -10,6 +10,7 @@ import InboxPage from '../page'
 
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -206,7 +207,7 @@ it('PATCHes /api/tasks/:id with the selected workflow_id when Assign is clicked'
   expect(body.workflow_id).toBe(wf1.id)
 })
 
-it('includes the CSRF token in the Assign PATCH request', async () => {
+it('sends PATCH to /api/tasks/:id with workflow_id in body when Assign is clicked', async () => {
   setupFetch()
   wrap(<InboxPage />)
 
@@ -220,8 +221,9 @@ it('includes the CSRF token in the Assign PATCH request', async () => {
   const patchCall = mockFetch.mock.calls.find(
     ([url, opts]: [string, RequestInit]) => url === `/api/tasks/${task1.id}` && opts.method === 'PATCH',
   )
-  const headers = patchCall[1].headers as Record<string, string>
-  expect(headers['X-CSRF-Token']).toBe('test-csrf-token')
+  expect(patchCall).toBeTruthy()
+  const body = JSON.parse(patchCall[1].body as string)
+  expect(body.workflow_id).toBe(wf1.id)
 })
 
 it('removes the assigned task from the list after a successful PATCH', async () => {

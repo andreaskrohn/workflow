@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import type { Task } from '@/lib/db/repositories/taskRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { handleApiError, responseToApiError } from '@/lib/utils/errors'
 import { useToast } from './ToastProvider'
 
@@ -87,10 +87,9 @@ export function QuickCaptureModal({ workflowId, onCreated }: QuickCaptureModalPr
 
     setSaving(true)
     try {
-      const token = await getCsrfToken()
-      const res = await fetch('/api/tasks', {
+      const res = await mutate('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: result.data.title, workflow_id: workflowId }),
       })
       if (!res.ok) throw await responseToApiError(res)

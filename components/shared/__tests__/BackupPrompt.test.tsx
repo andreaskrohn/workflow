@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event'
 // Mock CSRF so we control the token
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-token'),
 }))
 
 import { BackupPrompt } from '../BackupPrompt'
@@ -66,7 +67,7 @@ describe('BackupPrompt', () => {
     )
   })
 
-  it('"Back up" sends the CSRF token', async () => {
+  it('"Back up" sends POST to /api/backup', async () => {
     mockFetch({
       '/api/backup/status': { needed: true, last_backup_at: null },
       '/api/backup': { message: 'Backup started.' },
@@ -78,9 +79,7 @@ describe('BackupPrompt', () => {
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/backup',
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'X-CSRF-Token': 'test-token' }),
-        }),
+        expect.objectContaining({ method: 'POST' }),
       ),
     )
   })

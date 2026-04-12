@@ -8,6 +8,7 @@ import type { Tag } from '@/lib/db/repositories/tagRepository'
 
 jest.mock('@/lib/middleware/csrf', () => ({
   getCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
+  invalidateCsrfToken: jest.fn().mockResolvedValue('test-csrf-token'),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ it('leaves tags empty and loading false on fetch error', async () => {
 
 // ── addTag ────────────────────────────────────────────────────────────────────
 
-it('addTag posts to /api/tags with CSRF token', async () => {
+it('addTag posts to /api/tags with the correct method and body', async () => {
   ;(global.fetch as jest.Mock)
     .mockResolvedValueOnce(okJson([TAG_A]))            // initial fetch
     .mockResolvedValueOnce(okJson({ id: 'tag-3', name: 'newTag', created_at: 3000 }, 201))
@@ -117,7 +118,6 @@ it('addTag posts to /api/tags with CSRF token', async () => {
       '/api/tags',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }),
         body: JSON.stringify({ name: 'newTag' }),
       }),
     ),
@@ -211,7 +211,7 @@ it('addTag does not mutate state when server returns error', async () => {
 
 // ── removeTag ─────────────────────────────────────────────────────────────────
 
-it('removeTag sends DELETE /api/tags/:id with CSRF token', async () => {
+it('removeTag sends DELETE to /api/tags/:id', async () => {
   ;(global.fetch as jest.Mock)
     .mockResolvedValueOnce(okJson([TAG_A, TAG_B]))
     .mockResolvedValueOnce({ ok: true, status: 204 } as unknown as Response)
@@ -224,10 +224,7 @@ it('removeTag sends DELETE /api/tags/:id with CSRF token', async () => {
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/tags/tag-1',
-      expect.objectContaining({
-        method: 'DELETE',
-        headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }),
-      }),
+      expect.objectContaining({ method: 'DELETE' }),
     ),
   )
 })

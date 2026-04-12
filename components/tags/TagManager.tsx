@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import type { Tag } from '@/lib/db/repositories/tagRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { useTagContext } from './TagContext'
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -48,13 +48,9 @@ export default function TagManager({ taskId }: { taskId: string }) {
   const addTag = useCallback(
     async (tagId: string) => {
       try {
-        const token = await getCsrfToken()
-        const res = await fetch(`/api/tasks/${taskId}/tags`, {
+        const res = await mutate(`/api/tasks/${taskId}/tags`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': token,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tagId }),
         })
         if (res.ok) {
@@ -71,11 +67,7 @@ export default function TagManager({ taskId }: { taskId: string }) {
   const removeTag = useCallback(
     async (tagId: string) => {
       try {
-        const token = await getCsrfToken()
-        const res = await fetch(`/api/tasks/${taskId}/tags/${tagId}`, {
-          method: 'DELETE',
-          headers: { 'X-CSRF-Token': token },
-        })
+        const res = await mutate(`/api/tasks/${taskId}/tags/${tagId}`, { method: 'DELETE' })
         if (res.ok) {
           setTaskTags((prev) => prev.filter((t) => t.id !== tagId))
         }

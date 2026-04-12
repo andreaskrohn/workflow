@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import type { WorkflowReviewItem } from '@/lib/db/repositories/reviewRepository'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 import { addDays, addMonths, dateInputToTs, tsToDateInput } from '@/lib/utils/dates'
 
 // ── Shortcuts ─────────────────────────────────────────────────────────────────
@@ -39,13 +39,9 @@ export function ReviewPage() {
 
     setUpdating((prev) => new Set([...prev, workflowId]))
     try {
-      const token = await getCsrfToken()
-      const res = await fetch(`/api/workflows/${workflowId}`, {
+      const res = await mutate(`/api/workflows/${workflowId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': token,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ review_date: reviewDate }),
       })
       if (res.ok) {

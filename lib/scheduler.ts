@@ -13,6 +13,9 @@ declare global {
 
 if (!global.schedulerInitialized) {
   global.schedulerInitialized = true
+  process.stderr.write(
+    JSON.stringify({ level: 'info', time: Date.now(), pid: process.pid, msg: 'cron: scheduler initialized' }) + '\n',
+  )
 
   // Daily backup at 23:00.
   cron.schedule('0 23 * * *', () => {

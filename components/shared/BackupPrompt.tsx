@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { getCsrfToken } from '@/lib/middleware/csrf'
+import { mutate } from '@/lib/utils/mutate'
 
 type State = 'idle' | 'visible' | 'backing-up' | 'dismissed'
 
@@ -23,11 +23,7 @@ export function BackupPrompt() {
   async function handleBackUp() {
     setState('backing-up')
     try {
-      const token = await getCsrfToken()
-      await fetch('/api/backup', {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': token },
-      })
+      await mutate('/api/backup', { method: 'POST' })
     } catch {
       // Fire-and-forget; the API itself is non-blocking.
     }
