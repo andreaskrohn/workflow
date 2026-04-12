@@ -4,7 +4,7 @@ import path from 'path'
 const isTest = process.env['NODE_ENV'] === 'test'
 
 const logger = pino({
-  level: process.env['LOG_LEVEL'] ?? 'info',
+  level: isTest ? 'silent' : (process.env['LOG_LEVEL'] ?? 'info'),
   ...(isTest
     ? {}
     : {
