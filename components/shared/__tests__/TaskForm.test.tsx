@@ -35,6 +35,7 @@ const baseTask: Task = {
   priority: 3,
   due_date: null,
   defer_date: null,
+  review_date: null,
   created_at: 1_000_000,
   updated_at: 1_000_000,
   archived_at: null,
@@ -185,7 +186,8 @@ describe('defer date shortcuts', () => {
     const task = { ...baseTask, defer_date: Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000) }
     wrap(<TaskForm task={task} onSaved={onSaved} onCancel={onCancel} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '+1w' }))
+    // defer +1w is index 0; review +1w is index 1
+    fireEvent.click(screen.getAllByRole('button', { name: '+1w' })[0])
 
     expect(screen.getByLabelText('Defer until')).toHaveValue('2024-06-17')
   })
@@ -194,7 +196,8 @@ describe('defer date shortcuts', () => {
     const task = { ...baseTask, defer_date: Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000) }
     wrap(<TaskForm task={task} onSaved={onSaved} onCancel={onCancel} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '+1m' }))
+    // defer +1m is index 0; review +1m is index 1
+    fireEvent.click(screen.getAllByRole('button', { name: '+1m' })[0])
 
     expect(screen.getByLabelText('Defer until')).toHaveValue('2024-07-10')
   })
@@ -203,7 +206,8 @@ describe('defer date shortcuts', () => {
     const task = { ...baseTask, defer_date: Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000) }
     wrap(<TaskForm task={task} onSaved={onSaved} onCancel={onCancel} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '+3m' }))
+    // defer +3m is index 0; review +3m is index 1
+    fireEvent.click(screen.getAllByRole('button', { name: '+3m' })[0])
 
     expect(screen.getByLabelText('Defer until')).toHaveValue('2024-09-10')
   })
@@ -217,6 +221,88 @@ describe('defer date shortcuts', () => {
 
     expect(screen.getByLabelText('Defer until')).toHaveValue('2024-08-01')
   })
+})
+
+// ── Review date shortcuts ─────────────────────────────────────────────────────
+
+describe('review date shortcuts', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2024-06-15T12:00:00'))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('+1w from an empty field uses today as base', () => {
+    wrap(<TaskForm task={baseTask} onSaved={onSaved} onCancel={onCancel} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: '+1w' })[1]) // [0] = defer +1w, [1] = review +1w
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-06-22')
+  })
+
+  it('+2w from an existing date adds 14 days', () => {
+    const task = { ...baseTask, review_date: Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000) }
+    wrap(<TaskForm task={task} onSaved={onSaved} onCancel={onCancel} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '+2w' }))
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-06-24')
+  })
+
+  it('+1m from an existing date adds one month', () => {
+    const task = { ...baseTask, review_date: Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000) }
+    wrap(<TaskForm task={task} onSaved={onSaved} onCancel={onCancel} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: '+1m' })[1]) // [0] = defer +1m, [1] = review +1m
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-07-10')
+  })
+
+  it('+3m from an existing date adds three months', () => {
+    const task = { ...baseTask, review_date: Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000) }
+    wrap(<TaskForm task={task} onSaved={onSaved} onCancel={onCancel} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: '+3m' })[1]) // [0] = defer +3m, [1] = review +3m
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-09-10')
+  })
+
+  it('typing a date directly into the date picker updates the review field', () => {
+    wrap(<TaskForm task={baseTask} onSaved={onSaved} onCancel={onCancel} />)
+
+    fireEvent.change(screen.getByLabelText('Review date'), { target: { value: '2024-09-01' } })
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-09-01')
+  })
+})
+
+// ── review_date sent in POST/PATCH ────────────────────────────────────────────
+
+it('includes review_date in the POST body on create', async () => {
+  mockFetch.mockResolvedValue(ok({ ...baseTask, id: 'new-1' }))
+
+  wrap(<TaskForm workflowId="wf-1" onSaved={onSaved} onCancel={onCancel} />)
+
+  fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'New task' } })
+  fireEvent.change(screen.getByLabelText('Review date'), { target: { value: '2024-08-01' } })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })) })
+
+  const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string)
+  expect(body.review_date).not.toBeNull()
+})
+
+it('includes review_date in the PATCH body on edit', async () => {
+  mockFetch.mockResolvedValue(ok({ ...baseTask }))
+
+  wrap(<TaskForm task={baseTask} onSaved={onSaved} onCancel={onCancel} />)
+
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })) })
+
+  const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string)
+  expect('review_date' in body).toBe(true)
 })
 
 // ── Error handling ────────────────────────────────────────────────────────────

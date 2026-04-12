@@ -93,6 +93,12 @@ export const TaskUpdateSchema = z.object({
     .nullable()
     .optional(),
 
+  review_date: z
+    .number()
+    .int('Review date must be a valid timestamp.')
+    .nullable()
+    .optional(),
+
   position_x: z.number().nullable().optional(),
   position_y: z.number().nullable().optional(),
   workflow_id: z.string().uuid('workflow_id must be a valid UUID.').nullable().optional(),

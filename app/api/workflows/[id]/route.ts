@@ -32,6 +32,11 @@ const UpdateWorkflowSchema = z.object({
     .int('Due date must be a valid timestamp.')
     .nullable()
     .optional(),
+  review_date: z
+    .number()
+    .int('Review date must be a valid timestamp.')
+    .nullable()
+    .optional(),
   archived_at: z
     .number()
     .int()

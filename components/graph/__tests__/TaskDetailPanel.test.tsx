@@ -34,9 +34,10 @@ function wrap(ui: React.ReactElement) {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-// 2024-06-15 and 2024-06-10 as Unix timestamps (seconds, local midnight)
+// 2024-06-15, 2024-06-10, and 2024-06-20 as Unix timestamps (seconds, local midnight)
 const DUE_TS = Math.floor(new Date('2024-06-15T00:00:00').getTime() / 1000)
 const DEFER_TS = Math.floor(new Date('2024-06-10T00:00:00').getTime() / 1000)
+const REVIEW_TS = Math.floor(new Date('2024-06-20T00:00:00').getTime() / 1000)
 
 const baseTask: Task = {
   id: 'task-1',
@@ -48,6 +49,7 @@ const baseTask: Task = {
   priority: 3,
   due_date: DUE_TS,
   defer_date: DEFER_TS,
+  review_date: REVIEW_TS,
   created_at: 1_000_000,
   updated_at: 1_000_000,
   archived_at: null,
@@ -77,6 +79,7 @@ it('pre-fills all fields from the task prop', () => {
   expect(screen.getByDisplayValue('Task notes')).toBeInTheDocument()
   expect(screen.getByDisplayValue('2024-06-15')).toBeInTheDocument()
   expect(screen.getByDisplayValue('2024-06-10')).toBeInTheDocument()
+  expect(screen.getByDisplayValue('2024-06-20')).toBeInTheDocument()
 })
 
 it('renders TagManager with the task id', () => {
@@ -145,6 +148,7 @@ it('PATCHes /api/tasks/:id with the current field values on save', async () => {
   expect(body.status).toBe('todo')
   expect(body.description).toBe('Task description')
   expect(body.notes).toBe('Task notes')
+  expect(typeof body.review_date).toBe('number')
 })
 
 it('calls onUpdated with the returned task after a successful save', async () => {
@@ -234,6 +238,81 @@ describe('defer date shortcuts', () => {
     fireEvent.click(clearButtons[1]) // second Clear = defer date
 
     expect(screen.queryByDisplayValue('2024-06-10')).toBeNull()
+  })
+})
+
+// ── Review date shortcuts ─────────────────────────────────────────────────────
+
+describe('review date shortcuts', () => {
+  it('pre-fills the review date from the task prop', () => {
+    wrap(<TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />)
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-06-20')
+  })
+
+  it('+1w adds seven days to the existing review date', () => {
+    wrap(<TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />)
+
+    // +1w buttons: due date (0), defer date (1), review date (2)
+    const plusOneWButtons = screen.getAllByRole('button', { name: '+1w' })
+    fireEvent.click(plusOneWButtons[2])
+
+    // review date 2024-06-20 + 7 = 2024-06-27
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-06-27')
+  })
+
+  it('+2w adds fourteen days to the existing review date', () => {
+    wrap(<TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '+2w' }))
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-07-04')
+  })
+
+  it('+1m adds one month to the existing review date', () => {
+    wrap(<TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />)
+
+    // Multiple +1m buttons: due date, defer date, review date. Review date is last.
+    const plusOneMButtons = screen.getAllByRole('button', { name: '+1m' })
+    fireEvent.click(plusOneMButtons[plusOneMButtons.length - 1])
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-07-20')
+  })
+
+  it('+3m adds three months to the existing review date', () => {
+    wrap(<TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />)
+
+    const plusThreeMButtons = screen.getAllByRole('button', { name: '+3m' })
+    fireEvent.click(plusThreeMButtons[plusThreeMButtons.length - 1])
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-09-20')
+  })
+
+  it('Clear removes the review date', () => {
+    wrap(<TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />)
+
+    const clearButtons = screen.getAllByRole('button', { name: /^clear$/i })
+    fireEvent.click(clearButtons[clearButtons.length - 1]) // last Clear = review date
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('')
+  })
+
+  it('re-sync includes review_date when task.id changes', async () => {
+    const { rerender } = wrap(
+      <TaskDetailPanel task={baseTask} onClose={onClose} onUpdated={onUpdated} />,
+    )
+
+    const newTs = Math.floor(new Date('2024-09-01T00:00:00').getTime() / 1000)
+    const newTask: Task = { ...baseTask, id: 'task-2', review_date: newTs }
+    await act(async () => {
+      rerender(
+        <ToastProvider>
+          <TaskDetailPanel task={newTask} onClose={onClose} onUpdated={onUpdated} />
+        </ToastProvider>,
+      )
+    })
+
+    expect(screen.getByLabelText('Review date')).toHaveValue('2024-09-01')
   })
 })
 

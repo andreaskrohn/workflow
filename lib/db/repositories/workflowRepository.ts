@@ -9,6 +9,7 @@ export interface Workflow {
   name: string
   end_goal: string | null
   due_date: number | null
+  review_date: number | null
   sort_order: number
   archived_at: number | null
   eg_position_x: number | null
@@ -29,6 +30,7 @@ export interface UpdateWorkflowInput {
   name?: string
   end_goal?: string | null
   due_date?: number | null
+  review_date?: number | null
   archived_at?: number | null
   eg_position_x?: number | null
   eg_position_y?: number | null
@@ -92,6 +94,7 @@ export function updateWorkflow(
     SET name          = ?,
         end_goal      = ?,
         due_date      = ?,
+        review_date   = ?,
         archived_at   = ?,
         eg_position_x = ?,
         eg_position_y = ?,
@@ -101,6 +104,7 @@ export function updateWorkflow(
     input.name ?? existing.name,
     'end_goal' in input ? input.end_goal : existing.end_goal,
     'due_date' in input ? input.due_date : existing.due_date,
+    'review_date' in input ? input.review_date : existing.review_date,
     'archived_at' in input ? input.archived_at : existing.archived_at,
     'eg_position_x' in input ? input.eg_position_x : existing.eg_position_x,
     'eg_position_y' in input ? input.eg_position_y : existing.eg_position_y,

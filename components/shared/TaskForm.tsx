@@ -21,6 +21,7 @@ export function TaskForm({ task, workflowId, onSaved, onArchived, onCancel }: Ta
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [deferDate, setDeferDate] = useState(tsToDateInput(task?.defer_date ?? null))
+  const [reviewDate, setReviewDate] = useState(tsToDateInput(task?.review_date ?? null))
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
@@ -45,13 +46,14 @@ export function TaskForm({ task, workflowId, onSaved, onArchived, onCancel }: Ta
         saved = await submitPatch({
           title,
           defer_date: dateInputToTs(deferDate),
+          review_date: dateInputToTs(reviewDate),
         })
       } else {
         const csrfToken = await getCsrfToken()
         const res = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-          body: JSON.stringify({ title, workflow_id: workflowId, defer_date: dateInputToTs(deferDate) }),
+          body: JSON.stringify({ title, workflow_id: workflowId, defer_date: dateInputToTs(deferDate), review_date: dateInputToTs(reviewDate) }),
         })
         if (!res.ok) throw await responseToApiError(res)
         saved = (await res.json()) as Task
@@ -124,6 +126,23 @@ export function TaskForm({ task, workflowId, onSaved, onArchived, onCancel }: Ta
         <button type="button" onClick={() => setDeferDate(addDays(deferDate || null, 7))}>+1w</button>
         <button type="button" onClick={() => setDeferDate(addMonths(deferDate || null, 1))}>+1m</button>
         <button type="button" onClick={() => setDeferDate(addMonths(deferDate || null, 3))}>+3m</button>
+      </div>
+
+      <div>
+        <label htmlFor="task-review-date">Review date</label>
+        <input
+          id="task-review-date"
+          type="date"
+          value={reviewDate}
+          onChange={(e) => setReviewDate(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <button type="button" onClick={() => setReviewDate(addDays(reviewDate || null, 7))}>+1w</button>
+        <button type="button" onClick={() => setReviewDate(addDays(reviewDate || null, 14))}>+2w</button>
+        <button type="button" onClick={() => setReviewDate(addMonths(reviewDate || null, 1))}>+1m</button>
+        <button type="button" onClick={() => setReviewDate(addMonths(reviewDate || null, 3))}>+3m</button>
       </div>
 
       <div>

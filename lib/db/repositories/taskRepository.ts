@@ -15,6 +15,7 @@ export interface Task {
   priority: number
   due_date: number | null
   defer_date: number | null
+  review_date: number | null
   created_at: number
   updated_at: number
   archived_at: number | null
@@ -54,6 +55,8 @@ export interface UpdateTaskInput {
   due_date?: number | null
   /** Pass `null` to explicitly clear the field. */
   defer_date?: number | null
+  /** Pass `null` to explicitly clear the field. */
+  review_date?: number | null
   position_x?: number | null
   position_y?: number | null
   end_goal?: string | null
@@ -172,6 +175,7 @@ export function updateTask(
         priority    = ?,
         due_date    = ?,
         defer_date  = ?,
+        review_date = ?,
         position_x  = ?,
         position_y  = ?,
         end_goal    = ?,
@@ -186,6 +190,7 @@ export function updateTask(
     input.priority ?? existing.priority,
     'due_date' in input ? input.due_date : existing.due_date,
     'defer_date' in input ? input.defer_date : existing.defer_date,
+    'review_date' in input ? input.review_date : existing.review_date,
     'position_x' in input ? input.position_x : existing.position_x,
     'position_y' in input ? input.position_y : existing.position_y,
     'end_goal' in input ? input.end_goal : existing.end_goal,
