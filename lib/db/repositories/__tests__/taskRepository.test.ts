@@ -269,33 +269,149 @@ describe('unarchiveTask', () => {
 })
 
 // ── searchTasks ───────────────────────────────────────────────────────────────
+//
+// All tokens below are deliberately unusual so no cross-test bleed is possible
+// even if resetDatabase() were skipped. Each describe block uses a unique prefix.
 
-describe('searchTasks', () => {
-  it('returns tasks matching the query', () => {
-    const task = createTask(db, { title: 'Zephyr documentation' })
-    const results = searchTasks(db, 'Zephyr')
-    expect(results.find((t) => t.id === task.id)).toBeDefined()
+describe('searchTasks — field coverage', () => {
+  it('matches a term in the task title', () => {
+    const task = createTask(db, { title: 'Quorumflux deployment' })
+    const results = searchTasks(db, 'Quorumflux')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
   })
 
-  it('does not return tasks that do not match', () => {
-    createTask(db, { title: 'Completely unrelated' })
-    const results = searchTasks(db, 'Zephyr')
-    expect(results.length).toBe(0)
+  it('matches a term in the task description', () => {
+    const task = createTask(db, { title: 'Nondescript', description: 'Velanthor migration notes' })
+    const results = searchTasks(db, 'Velanthor')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
   })
 
-  it('does not return archived tasks', () => {
-    const task = createTask(db, { title: 'ZephyrArchived' })
+  it('matches a term in the task notes', () => {
+    const task = createTask(db, { title: 'Nondescript', notes: 'Wyrmspire config change' })
+    const results = searchTasks(db, 'Wyrmspire')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('does not return tasks that do not match the query', () => {
+    createTask(db, { title: 'Irrelevant task title' })
+    const results = searchTasks(db, 'Zythomancer')
+    expect(results).toHaveLength(0)
+  })
+
+  it('returns all tasks that match when more than one exist', () => {
+    const a = createTask(db, { title: 'Duskraven alpha' })
+    const b = createTask(db, { title: 'Duskraven beta' })
+    const results = searchTasks(db, 'Duskraven')
+    const ids = results.map((t) => t.id)
+    expect(ids).toContain(a.id)
+    expect(ids).toContain(b.id)
+  })
+})
+
+describe('searchTasks — archive and status rules', () => {
+  it('excludes archived tasks (FTS trigger removes them from the index)', () => {
+    const task = createTask(db, { title: 'Grimvault archived' })
     archiveTask(db, task.id)
-    const results = searchTasks(db, 'ZephyrArchived')
-    expect(results.find((t) => t.id === task.id)).toBeUndefined()
+    const results = searchTasks(db, 'Grimvault')
+    expect(results.some((t) => t.id === task.id)).toBe(false)
   })
 
-  it('searches across description and notes fields', () => {
-    const task = createTask(db, {
-      title: 'Plain title',
-      description: 'XylophoneTermDescription',
+  it('excludes an archived task even when a sibling with the same term stays active', () => {
+    const active = createTask(db, { title: 'Spelunknow active' })
+    const archived = createTask(db, { title: 'Spelunknow archived' })
+    archiveTask(db, archived.id)
+    const results = searchTasks(db, 'Spelunknow')
+    expect(results.some((t) => t.id === active.id)).toBe(true)
+    expect(results.some((t) => t.id === archived.id)).toBe(false)
+  })
+
+  it('includes completed (status=done) tasks — done ≠ archived', () => {
+    const task = createTask(db, { title: 'Thornwick completed', status: 'done' })
+    const results = searchTasks(db, 'Thornwick')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('includes blocked tasks', () => {
+    const task = createTask(db, { title: 'Frostholm blocked', status: 'blocked' })
+    const results = searchTasks(db, 'Frostholm')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('makes a task searchable again after it is unarchived', () => {
+    const task = createTask(db, { title: 'Mirewood restored' })
+    archiveTask(db, task.id)
+    expect(searchTasks(db, 'Mirewood')).toHaveLength(0)
+
+    unarchiveTask(db, task.id)
+    const results = searchTasks(db, 'Mirewood')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
+  })
+})
+
+describe('searchTasks — FTS5 query behaviour', () => {
+  it('is case-insensitive (FTS5 unicode61 tokenizer folds case)', () => {
+    const task = createTask(db, { title: 'Camelback Protocol' })
+    // Search with all-lowercase
+    expect(searchTasks(db, 'camelback').some((t) => t.id === task.id)).toBe(true)
+    // Search with all-uppercase
+    expect(searchTasks(db, 'CAMELBACK').some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('prefix query (term*) matches tokens that start with the given prefix', () => {
+    // Using FTS5 MATCH directly — this would not work with LIKE without % suffix
+    const task = createTask(db, { title: 'Orchestration pipeline' })
+    const results = searchTasks(db, 'Orchestrat*')
+    expect(results.some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('multi-word query requires all terms to appear (implicit AND)', () => {
+    const both = createTask(db, { title: 'Nebulord integration', description: 'Pfenlix config' })
+    const onlyFirst = createTask(db, { title: 'Nebulord standalone' })
+    const onlySecond = createTask(db, { title: 'Pfenlix standalone' })
+
+    const results = searchTasks(db, 'Nebulord Pfenlix')
+    expect(results.some((t) => t.id === both.id)).toBe(true)
+    expect(results.some((t) => t.id === onlyFirst.id)).toBe(false)
+    expect(results.some((t) => t.id === onlySecond.id)).toBe(false)
+  })
+
+  it('re-indexes the task when its title is updated (tasks_fts_update trigger)', () => {
+    const task = createTask(db, { title: 'OldTermAxion' })
+    expect(searchTasks(db, 'OldTermAxion')).toHaveLength(1)
+
+    updateTask(db, task.id, { title: 'NewTermBorion' })
+
+    // Old term must no longer match
+    expect(searchTasks(db, 'OldTermAxion')).toHaveLength(0)
+    // New term must match
+    expect(searchTasks(db, 'NewTermBorion').some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('re-indexes when description is updated', () => {
+    const task = createTask(db, { title: 'Stable', description: 'OldDescVorex' })
+    updateTask(db, task.id, { description: 'NewDescCorvin' })
+
+    expect(searchTasks(db, 'OldDescVorex')).toHaveLength(0)
+    expect(searchTasks(db, 'NewDescCorvin').some((t) => t.id === task.id)).toBe(true)
+  })
+
+  it('results are ordered by FTS5 rank (most relevant first)', () => {
+    // Task A: term appears in title (higher BM25 weight due to shorter field)
+    // Task B: term appears only in long notes (lower rank)
+    const termA = 'Ranktrex'
+    const a = createTask(db, { title: termA })
+    const b = createTask(db, {
+      title: 'Unrelated heading with extra words to dilute BM25',
+      notes: `${termA} buried in lengthy notes with many other words to ensure lower rank`,
     })
-    const results = searchTasks(db, 'XylophoneTermDescription')
-    expect(results.find((t) => t.id === task.id)).toBeDefined()
+
+    const results = searchTasks(db, termA)
+    // Both must be present
+    expect(results.some((t) => t.id === a.id)).toBe(true)
+    expect(results.some((t) => t.id === b.id)).toBe(true)
+    // Title match must appear before notes-only match
+    const idxA = results.findIndex((t) => t.id === a.id)
+    const idxB = results.findIndex((t) => t.id === b.id)
+    expect(idxA).toBeLessThan(idxB)
   })
 })
