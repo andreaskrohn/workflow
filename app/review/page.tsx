@@ -1,3 +1,5 @@
-export default function ReviewPage() {
-  return <h1 className="text-2xl font-semibold">Review</h1>
-}
+'use client'
+
+import { ReviewPage } from '@/components/review/ReviewPage'
+
+export default ReviewPage

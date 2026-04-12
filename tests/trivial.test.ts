@@ -16,7 +16,7 @@ describe('test infrastructure', () => {
       .get() as { version: number | null }
     db.close()
 
-    expect(row.version).toBe(11)
+    expect(row.version).toBe(12)
   })
 
   it('NODE_ENV is test', () => {

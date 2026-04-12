@@ -18,6 +18,7 @@ export interface Task {
   review_date: number | null
   created_at: number
   updated_at: number
+  completed_at: number | null
   archived_at: number | null
   position_x: number | null
   position_y: number | null
@@ -166,27 +167,43 @@ export function updateTask(
 
   const now = Math.floor(Date.now() / 1000)
 
+  // Derive completed_at:
+  //  • Non-done → done:  stamp now
+  //  • Done → non-done:  clear
+  //  • Staying done:     preserve existing timestamp
+  //  • Staying non-done: keep null
+  const incomingStatus = input.status ?? existing.status
+  let completedAt: number | null
+  if (incomingStatus === 'done' && existing.status !== 'done') {
+    completedAt = now
+  } else if (incomingStatus !== 'done') {
+    completedAt = null
+  } else {
+    completedAt = existing.completed_at ?? null
+  }
+
   db.prepare(`
     UPDATE tasks
-    SET title       = ?,
-        description = ?,
-        notes       = ?,
-        status      = ?,
-        priority    = ?,
-        due_date    = ?,
-        defer_date  = ?,
-        review_date = ?,
-        position_x  = ?,
-        position_y  = ?,
-        end_goal    = ?,
-        workflow_id = ?,
-        updated_at  = ?
+    SET title        = ?,
+        description  = ?,
+        notes        = ?,
+        status       = ?,
+        priority     = ?,
+        due_date     = ?,
+        defer_date   = ?,
+        review_date  = ?,
+        position_x   = ?,
+        position_y   = ?,
+        end_goal     = ?,
+        workflow_id  = ?,
+        completed_at = ?,
+        updated_at   = ?
     WHERE id = ?
   `).run(
     input.title ?? existing.title,
     'description' in input ? input.description : existing.description,
     'notes' in input ? input.notes : existing.notes,
-    input.status ?? existing.status,
+    incomingStatus,
     input.priority ?? existing.priority,
     'due_date' in input ? input.due_date : existing.due_date,
     'defer_date' in input ? input.defer_date : existing.defer_date,
@@ -195,6 +212,7 @@ export function updateTask(
     'position_y' in input ? input.position_y : existing.position_y,
     'end_goal' in input ? input.end_goal : existing.end_goal,
     'workflow_id' in input ? input.workflow_id : existing.workflow_id,
+    completedAt,
     now,
     id,
   )
@@ -260,6 +278,30 @@ export function archiveTask(db: Database.Database, id: string): void {
  */
 export function unarchiveTask(db: Database.Database, id: string): void {
   db.prepare('UPDATE tasks SET archived_at = NULL WHERE id = ?').run(id)
+}
+
+/**
+ * Lists completed tasks for the Log view.
+ *
+ * Returns tasks where `status = 'done'` and `archived_at IS NULL`, ordered
+ * by `completed_at DESC` (most recently completed first), with `updated_at`
+ * as a secondary sort for tasks that pre-date the `completed_at` column.
+ *
+ * Note (v2): completed tasks inside archived workflows are not excluded here;
+ * that filter will be added in a future release.
+ *
+ * @param db Open better-sqlite3 database instance.
+ * @returns  Completed active task rows.
+ */
+export function listCompletedTasks(db: Database.Database): Task[] {
+  return db
+    .prepare(
+      `SELECT * FROM tasks
+       WHERE  status = 'done'
+         AND  archived_at IS NULL
+       ORDER BY completed_at DESC, updated_at DESC`,
+    )
+    .all() as Task[]
 }
 
 /**

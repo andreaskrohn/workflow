@@ -1,3 +1,5 @@
-export default function LogPage() {
-  return <h1 className="text-2xl font-semibold">Log</h1>
-}
+'use client'
+
+import { LogPage } from '@/components/log/LogPage'
+
+export default LogPage
